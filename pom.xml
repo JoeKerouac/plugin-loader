@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.github.JoeKerouac</groupId>
+    <artifactId>plugin-loader</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>plugin-loader</name>
+    <description>应用插件加载器，用于类隔离使用</description>
+    <url>https://github.com/JoeKerouac/plugin-loader</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://github.com/JoeKerouac/plugin-loader</url>
+        <connection>scm:git:https://github.com/JoeKerouac/plugin-loader.git</connection>
+        <developerConnection>scm:git:https://github.com/JoeKerouac/plugin-loader.git</developerConnection>
+    </scm>
+
+    <developers>
+        <developer>
+            <name>JoeKerouac</name>
+            <email>1213812243@qq.com</email>
+        </developer>
+    </developers>
+
+
+    <properties>
+        <lombok.version>1.18.20</lombok.version>
+        <testng.version>6.14.3</testng.version>
+
+        <spotbugs.version>4.1.4</spotbugs.version>
+        <checkstyle.version>3.1.1</checkstyle.version>
+        <build.java.version>1.8</build.java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <format.action>format</format.action>
+        <license.maven.plugin>3.0</license.maven.plugin>
+        <!-- 原始源码目录，我们后边要将源码目录切换到delombok.dir中 -->
+        <origin.source.dir>src/main/java</origin.source.dir>
+        <!-- 打包生成source时使用的目录 -->
+        <source.generate.dir>src/main/java</source.generate.dir>
+        <!-- lombok生成源码的目录 -->
+        <delombok.dir>${project.build.directory}/delombok</delombok.dir>
+        <!-- jacoco的行覆盖率最小值 -->
+        <jacoco.coveredratio.line>0.70</jacoco.coveredratio.line>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+    <build>
+        <!-- 使用delombok生成的源码目录作为项目的源码目录，主要在生成源码的时候使用 -->
+        <sourceDirectory>${source.generate.dir}</sourceDirectory>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.1</version>
+                <configuration>
+                    <source>${build.java.version}</source>
+                    <target>${build.java.version}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <compilerArgs>
+                        <!-- 不对项目中使用过时API的行为警告 -->
+                        <arg>-Xlint:deprecation</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- 代码格式化插件，自动格式化代码使之格式统一 -->
+            <plugin>
+                <groupId>net.revelc.code.formatter</groupId>
+                <artifactId>formatter-maven-plugin</artifactId>
+                <version>2.13.0</version>
+                <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <configFile>Formatter.xml</configFile>
+                    <sourceDirectory>${origin.source.dir}</sourceDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>${format.action}</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <!-- 添加license头 -->
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license.maven.plugin}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>remove</goal>
+                            <goal>format</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <quiet>true</quiet>
+                    <header>HEADER</header>
+                    <includes>
+                        <include>**/src/main/java/**</include>
+                        <include>**/src/test/java/**</include>
+                    </includes>
+                    <strictCheck>true</strictCheck>
+                    <mapping>
+                        <java>SLASHSTAR_STYLE</java>
+                    </mapping>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- 定义maven仓库 -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>${maven.repo.id}</id>
+            <name>maven仓库</name>
+            <url>${maven.snapshot.repo}</url>
+        </snapshotRepository>
+        <repository>
+            <id>${maven.repo.id}</id>
+            <name>maven仓库</name>
+            <url>${maven.repo}</url>
+        </repository>
+    </distributionManagement>
+
+
+    <profiles>
+        <!-- 如果需要将构建发布到私服，请配置虾米那的环境变量，发布时激活该profile即可 -->
+        <profile>
+            <id>local</id>
+            <properties>
+                <maven.repo.id>nexus</maven.repo.id>
+                <maven.repo>${env.MVN_REPO}</maven.repo>
+                <maven.snapshot.repo>${env.MVN_SNAPSHOTS_REPO}</maven.snapshot.repo>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>central</id>
+            <properties>
+                <maven.repo.id>maven-central</maven.repo.id>
+                <maven.repo>https://oss.sonatype.org/service/local/staging/deploy/maven2</maven.repo>
+                <maven.snapshot.repo>https://oss.sonatype.org/content/repositories/snapshots</maven.snapshot.repo>
+            </properties>
+        </profile>
+
+        <profile>
+            <!-- 发布profile -->
+            <id>release</id>
+
+            <properties>
+                <!-- 发布阶段将format的功能切换为验证而不是格式化 -->
+                <format.action>validate</format.action>
+                <source.generate.dir>${delombok.dir}</source.generate.dir>
+            </properties>
+
+            <build>
+                <plugins>
+                    <!-- lombok插件，用于将源码中的lombok相关注解替换为对应的代码 -->
+                    <plugin>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok-maven-plugin</artifactId>
+                        <version>1.18.16.0</version>
+                        <configuration>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                            <!-- 指定要解除lombok注释的代码在这个目录中 -->
+                            <sourceDirectory>${origin.source.dir}</sourceDirectory>
+                            <!--
+                                delombok后的源码默认是输出到target/generated-sources/delombok目录中的，这里我们修改输出到我们指定的目录，因为
+                                如果输出到target/generated-sources中会导致IDEA也将其识别为源码，最终就是导致IDEA报错，因为class重复
+                            -->
+                            <outputDirectory>${delombok.dir}</outputDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>delombok</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- check style插件，对源码进行扫描 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <version>${checkstyle.version}</version>
+                        <configuration>
+                            <!-- 注意，我们要对原始源码进行check style检查，而不是当前delombok生成的源码，所以这里要手动切换目录 -->
+                            <sourceDirectories>${origin.source.dir}</sourceDirectories>
+                            <configLocation>checkstyle.xml</configLocation>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                            <consoleOutput>true</consoleOutput>
+                            <failsOnError>true</failsOnError>
+                            <linkXRef>false</linkXRef>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Source -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.2.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Javadoc -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                            <!-- jdk1.8要加上，1.7要去掉，否则会报错 -->
+                            <additionalJOptions>
+                                <additionalJOption>${javadoc.opts}</additionalJOption>
+                            </additionalJOptions>
+                        </configuration>
+                    </plugin>
+
+                    <!-- spotbugs检查（findbugs的替代品），spotbugs运行在编译后，对class文件进行扫描 -->
+                    <!-- 错误描述页面：https://spotbugs.readthedocs.io/en/latest/bugDescriptions.html -->
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>${spotbugs.version}</version>
+                        <configuration>
+                            <sourceEncoding>${project.build.sourceEncoding}</sourceEncoding>
+                            <effort>Max</effort>
+                            <!-- 如果bug级别大于等于该值将阻断流程 -->
+                            <threshold>High</threshold>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>verify</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Gpg Signature -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- 禁用注释检查 -->
+        <profile>
+            <id>disable-javadoc-doclint</id>
+            <activation>
+                <jdk>[1.8,)</jdk>
+            </activation>
+            <properties>
+                <javadoc.opts>-Xdoclint:none</javadoc.opts>
+            </properties>
+        </profile>
+    </profiles>
+
+
+</project>
