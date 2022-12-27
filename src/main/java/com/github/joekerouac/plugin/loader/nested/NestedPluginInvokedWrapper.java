@@ -13,15 +13,13 @@
 package com.github.joekerouac.plugin.loader.nested;
 
 import java.io.File;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
 import java.util.Arrays;
 
 import com.github.joekerouac.plugin.loader.PluginClassLoader;
 import com.github.joekerouac.plugin.loader.archive.impl.ZipArchive;
 import com.github.joekerouac.plugin.loader.function.ThrowableTaskWithResult;
+import com.github.joekerouac.plugin.loader.util.ClassUtil;
 
 import lombok.Getter;
 
@@ -71,7 +69,7 @@ public class NestedPluginInvokedWrapper {
      */
     public NestedPluginInvokedWrapper(Class<?> classInPlugin, String[] needParentLoad, boolean loadByParentAfterFail,
         ClassLoader parent) {
-        URL jarUrl = where(classInPlugin);
+        URL jarUrl = ClassUtil.where(classInPlugin);
         // 校验当前类肯定在jar包中
         if (!jarUrl.getProtocol().equals("jar")) {
             throw new IllegalStateException(String.format("当前类 [%s] 没有在jar包中执行", classInPlugin.getName()));
@@ -119,50 +117,6 @@ public class NestedPluginInvokedWrapper {
         } finally {
             Thread.currentThread().setContextClassLoader(old);
         }
-    }
-
-    /**
-     * 获取指定类所在jar包的路径
-     *
-     * @param cls
-     *            类
-     * @return 该类的路径URL，获取失败返回null，注意，该URL可能不能调用{@link URL#openStream()}，例如如果类是lambda表达式的情况
-     */
-    private static URL where(final Class<?> cls) {
-        if (cls == null) {
-            throw new IllegalArgumentException("null input: cls");
-        }
-
-        URL result = null;
-        final String clsAsResource = cls.getName().replace('.', '/').concat(".class");
-        final ProtectionDomain pd = cls.getProtectionDomain();
-        if (pd != null) {
-            final CodeSource cs = pd.getCodeSource();
-            if (cs != null) {
-                result = cs.getLocation();
-            }
-
-            if (result != null) {
-                if ("file".equals(result.getProtocol())) {
-                    try {
-                        if (result.toExternalForm().endsWith(".jar") || result.toExternalForm().endsWith(".zip")) {
-                            result = new URL("jar:".concat(result.toExternalForm()).concat(ZipArchive.separator)
-                                .concat(clsAsResource));
-                        } else if (new File(result.getFile()).isDirectory()) {
-                            result = new URL(result, clsAsResource);
-                        }
-                    } catch (MalformedURLException ignore) {
-                    }
-                }
-            }
-        }
-        if (result == null) {
-            final ClassLoader clsLoader = cls.getClassLoader();
-            result =
-                clsLoader != null ? clsLoader.getResource(clsAsResource) : ClassLoader.getSystemResource(clsAsResource);
-        }
-
-        return result;
     }
 
 }
