@@ -14,35 +14,28 @@ package com.github.joekerouac.plugin.loader.nested;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
 import java.util.zip.ZipEntry;
 
-import com.github.joekerouac.plugin.loader.ByteArrayData;
-import com.github.joekerouac.plugin.loader.ClassProvider;
+import com.github.joekerouac.plugin.loader.ResourceProvider;
 import com.github.joekerouac.plugin.loader.archive.Archive;
-import com.github.joekerouac.plugin.loader.archive.impl.RandomAccessDataImpl;
+import com.github.joekerouac.plugin.loader.archive.impl.FileRandomAccessData;
 import com.github.joekerouac.plugin.loader.archive.impl.ZipArchive;
 import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
-import com.github.joekerouac.plugin.loader.util.ZIPUtils;
+import com.github.joekerouac.plugin.loader.nested.handler.NestedJarURLStreamHandler;
 
 /**
- * 从嵌套jar中查找指定class，可以检索嵌套jar包中的类，前提是外部嵌套jar的压缩方式是STORED，即嵌套jar（jar中的jar）是以归档的形式存在与jar中，而不是压缩的形式；
+ * 从嵌套jar中查找指定resource，可以检索嵌套jar包中的类，前提是外部嵌套jar的压缩方式是STORED，即嵌套jar（jar中的jar）是以归档的形式存在与jar中，而不是压缩的形式；
  * 
  * 注意，外层jar中的class不会被加载，会交给父加载器加载
  *
  * @author JoeKerouac
  * @date 2021-12-25 09:38
- * @since 1.0.0
+ * @since 2.0.0
  */
-public class NestedJarClassProvider implements ClassProvider {
-
-    /**
-     * class文件后缀
-     */
-    private static final String CLASS_SUFFIX = ".class";
+public class NestedJarResourceProvider implements ResourceProvider {
 
     /**
      * 包含嵌套jar的jar包文件
@@ -52,9 +45,9 @@ public class NestedJarClassProvider implements ClassProvider {
     /**
      * entry缓存
      */
-    private volatile Map<String, Archive.Entry> entryCache;
+    private volatile Map<String, List<URL>> entryCache;
 
-    public NestedJarClassProvider(final File nestedJar) {
+    public NestedJarResourceProvider(final File nestedJar) {
         this.nestedJar = nestedJar;
     }
 
@@ -68,11 +61,25 @@ public class NestedJarClassProvider implements ClassProvider {
      * @throws IOException
      *             IO异常
      */
-    private void buildCache(Archive archive, Map<String, Archive.Entry> entryCache) throws IOException {
+    private void buildCache(Archive archive, Map<String, List<URL>> entryCache) throws IOException {
         List<Archive> nestedArchives = new ArrayList<>();
 
         for (final Archive.Entry entry : archive) {
-            entryCache.putIfAbsent(entry.getName(), entry);
+            entryCache.compute(entry.getName(), (name, list) -> {
+                if (list == null) {
+                    list = new ArrayList<>();
+                }
+
+                try {
+                    list.add(new URL(null, NestedJarURLStreamHandler.PROTOCOL + ":" + entry.getFullName(),
+                        new NestedJarURLStreamHandler()));
+                } catch (MalformedURLException e) {
+                    // 理论上不会发生
+                    throw new UnsupportedOperationException(e);
+                }
+                return list;
+            });
+
             if (entry.getName().endsWith(".jar") && entry.getMethod() == ZipEntry.STORED) {
                 nestedArchives.add(new ZipArchive(entry.getData(), entry.getFullName()));
             }
@@ -85,17 +92,17 @@ public class NestedJarClassProvider implements ClassProvider {
     }
 
     @Override
-    public ByteArrayData apply(final String className) {
-        Map<String, Archive.Entry> entryCache = this.entryCache;
+    public List<URL> apply(final String resourceName) {
+        Map<String, List<URL>> entryCache = this.entryCache;
 
         if (entryCache == null) {
             synchronized (nestedJar) {
                 entryCache = this.entryCache;
 
                 if (entryCache == null) {
-                    entryCache = new ConcurrentHashMap<>();
+                    entryCache = new HashMap<>();
                     try {
-                        buildCache(new ZipArchive(new RandomAccessDataImpl(nestedJar), nestedJar.getName()),
+                        buildCache(new ZipArchive(new FileRandomAccessData(nestedJar), nestedJar.toURI().toString()),
                             entryCache);
                     } catch (IOException e) {
                         throw new ClassLoaderException("jar包读取异常", e);
@@ -123,23 +130,7 @@ public class NestedJarClassProvider implements ClassProvider {
             }
         }
 
-        String classPath = className.replaceAll("\\.", "/").concat(CLASS_SUFFIX);
-        Archive.Entry entry = entryCache.get(classPath);
-        if (entry == null) {
-            return null;
-        }
-
-        try {
-            byte[] data = entry.getData().read();
-
-            if (entry.getMethod() == ZipEntry.DEFLATED) {
-                return ZIPUtils.decompressNoWrap(data, entry.size());
-            } else {
-                return new ByteArrayData(data, 0, data.length);
-            }
-        } catch (Throwable e) {
-            throw new RuntimeException(String.format("class [%s] 读取失败，所在entry: [%s]", classPath, entry.getName()), e);
-        }
+        return entryCache.getOrDefault(resourceName, Collections.emptyList());
     }
 
 }

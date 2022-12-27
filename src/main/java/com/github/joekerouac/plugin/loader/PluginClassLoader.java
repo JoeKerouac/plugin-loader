@@ -12,14 +12,18 @@
  */
 package com.github.joekerouac.plugin.loader;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLStreamHandlerFactory;
-import java.util.Arrays;
-import java.util.Optional;
+import java.util.*;
 
 import com.github.joekerouac.plugin.loader.counter.NopClassLoadCounter;
 import com.github.joekerouac.plugin.loader.counter.SunClassLoadCounter;
+import com.github.joekerouac.plugin.loader.util.EnumerationUtil;
+import com.github.joekerouac.plugin.loader.util.IOUtils;
 
 import lombok.Builder;
 
@@ -35,6 +39,11 @@ import lombok.Builder;
 public final class PluginClassLoader extends URLClassLoader {
 
     /**
+     * class文件后缀
+     */
+    private static final String CLASS_SUFFIX = ".class";
+
+    /**
      * ExtClassLoader的类名
      */
     private static final String EXT_CLASS_LOADER_CLASS_NAME;
@@ -43,6 +52,8 @@ public final class PluginClassLoader extends URLClassLoader {
      * 类加载信息计数
      */
     private static final ClassLoadCounter COUNTER;
+
+    private static final Field packagesField;
 
     static {
         // java8以及以下版本号：1.8.x_xxx、1.7.x_xxx等
@@ -75,6 +86,9 @@ public final class PluginClassLoader extends URLClassLoader {
             }
 
             COUNTER = counter;
+
+            packagesField = ClassLoader.class.getDeclaredField("packages");
+            packagesField.setAccessible(true);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -102,9 +116,11 @@ public final class PluginClassLoader extends URLClassLoader {
     private final ClassLoader extClassLoader;
 
     /**
-     * class提供者，如果urls里边的jar包都找不到指定类，那么将会去这里搜索
+     * 资源提供器
      */
-    private final ClassProvider provider;
+    private final ResourceProvider provider;
+
+    private final HashMap<String, Package> packages;
 
     /**
      * 插件类加载器
@@ -121,20 +137,20 @@ public final class PluginClassLoader extends URLClassLoader {
      *            必须父加载器来加载的类，允许为null
      * @param loadByParentAfterFail
      *            当本加载器加载类失败时是否允许父加载器加载，true表示允许
-     * @param classProvider
-     *            class提供者，如果urls里边的jar包都找不到指定类，那么将会去这里搜索，允许为null
+     * @param provider
+     *            resource提供者，如果urls里边的jar包都找不到指定类，那么将会去这里搜索，允许为null
      */
     @Builder
     private PluginClassLoader(URL[] classpath, ClassLoader parent, ClassLoader extClassLoader,
         URLStreamHandlerFactory urlStreamHandlerFactory, String[] needLoadByParent, boolean loadByParentAfterFail,
-        ClassProvider classProvider) {
+        ResourceProvider provider) {
         super(classpath == null ? new URL[0] : classpath, parent, urlStreamHandlerFactory);
         if (parent == null) {
             throw new NullPointerException("parent不能为空");
         }
 
         this.parent = parent;
-        this.provider = classProvider;
+        this.provider = provider;
         this.needLoadByParent =
             needLoadByParent == null ? new String[0] : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
 
@@ -168,6 +184,11 @@ public final class PluginClassLoader extends URLClassLoader {
                 String.format("传入的ExtClassLoader不是 [%s] 的实例, [%s]", EXT_CLASS_LOADER_CLASS_NAME, usedExtClassLoader));
         }
         this.extClassLoader = usedExtClassLoader;
+        try {
+            this.packages = (HashMap<String, Package>)packagesField.get(this);
+        } catch (Throwable e) {
+            throw new RuntimeException("获取packages字段失败", e);
+        }
     }
 
     /**
@@ -190,16 +211,49 @@ public final class PluginClassLoader extends URLClassLoader {
     }
 
     @Override
-    protected Class<?> findClass(String name) throws ClassNotFoundException {
-        Class<?> clazz = Optional.ofNullable(provider).map(p -> p.apply(name))
-            .map(data -> defClass(name, data.getData(), data.getOffset(), data.getLen())).orElse(null);
-
-        // 如果provider中不能提供类，那么调用URLClassLoader的findClass尝试从提供的URL中查找类，如果还查找不到就抛出异常
-        if (clazz == null) {
-            clazz = super.findClass(name);
+    public URL findResource(String name) {
+        URL resource = super.findResource(name);
+        if (resource == null && provider != null) {
+            List<URL> list = provider.apply(name);
+            if (!list.isEmpty()) {
+                resource = list.get(0);
+            }
         }
 
-        return clazz;
+        return resource;
+    }
+
+    @Override
+    public Enumeration<URL> findResources(String name) throws IOException {
+        List<URL> list = new ArrayList<>();
+        EnumerationUtil.addToList(list, super.findResources(name));
+
+        if (provider != null) {
+            list.addAll(provider.apply(name));
+        }
+        return EnumerationUtil.convert(list);
+    }
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        String classPath = name.replaceAll("\\.", "/").concat(CLASS_SUFFIX);
+
+        URL classUrl = Optional.ofNullable(provider).map(p -> p.apply(classPath)).filter(list -> !list.isEmpty())
+            .map(list -> list.get(0)).orElse(null);
+
+        if (classUrl == null) {
+            return super.findClass(name);
+        }
+
+        InputStream inputStream;
+        try {
+            inputStream = classUrl.openStream();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        byte[] classData = IOUtils.read(inputStream);
+        return defClass(name, classData, 0, classData.length);
     }
 
     @Override
@@ -266,6 +320,14 @@ public final class PluginClassLoader extends URLClassLoader {
      * @return class
      */
     public Class<?> defClass(String name, byte[] data, int offset, int len) {
+        synchronized (packages) {
+            String packageName = name.substring(0, name.lastIndexOf("."));
+            Package old = getPackage(packageName);
+            if (old == null) {
+                definePackage(packageName, null, null, null, null, null, null, null);
+            }
+        }
+
         return super.defineClass(name, data, offset, len);
     }
 

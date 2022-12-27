@@ -22,7 +22,7 @@ import com.github.joekerouac.plugin.loader.archive.RandomAccessData;
  * @date 2022-01-08 17:55
  * @since 1.0.0
  */
-public class RandomAccessDataImpl implements RandomAccessData {
+public class FileRandomAccessData implements RandomAccessData {
 
     private final RandomAccessFile file;
 
@@ -30,11 +30,11 @@ public class RandomAccessDataImpl implements RandomAccessData {
 
     private final int size;
 
-    public RandomAccessDataImpl(File file) throws FileNotFoundException {
+    public FileRandomAccessData(File file) throws FileNotFoundException {
         this(new RandomAccessFile(file, "r"), 0, file.length());
     }
 
-    public RandomAccessDataImpl(RandomAccessFile file, long offset, long size) {
+    public FileRandomAccessData(RandomAccessFile file, long offset, long size) {
         assert offset <= Integer.MAX_VALUE;
         assert size <= Integer.MAX_VALUE;
         this.file = file;
@@ -49,7 +49,7 @@ public class RandomAccessDataImpl implements RandomAccessData {
 
     @Override
     public RandomAccessData getSubsection(final long offset, final long length) {
-        return new RandomAccessDataImpl(file, offset + this.offset, length);
+        return new FileRandomAccessData(file, offset + this.offset, length);
     }
 
     @Override

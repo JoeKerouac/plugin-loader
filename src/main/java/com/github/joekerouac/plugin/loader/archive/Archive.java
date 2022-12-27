@@ -32,6 +32,13 @@ public interface Archive extends Iterable<Archive.Entry> {
     Entry getEntry(String name);
 
     /**
+     * 获取archive对应的输入流
+     *
+     * @return 输入流，如果是目录则返回null
+     */
+    InputStream getResource() throws IOException;
+
+    /**
      * entry
      */
     interface Entry {

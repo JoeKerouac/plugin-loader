@@ -33,6 +33,11 @@ import lombok.AllArgsConstructor;
 public class ZipArchive implements Archive {
 
     /**
+     * 嵌套jar中的分隔符
+     */
+    public static final String separator = "!/";
+
+    /**
      * 中央目录header最小大小
      */
     private static final long CENTRAL_DIRECTORY_MINIMUM_SIZE = 46;
@@ -115,6 +120,11 @@ public class ZipArchive implements Archive {
     }
 
     @Override
+    public InputStream getResource() throws IOException {
+        return accessData.getInputStream();
+    }
+
+    @Override
     public Iterator<Entry> iterator() {
         return entryMap.values().iterator();
     }
@@ -161,7 +171,7 @@ public class ZipArchive implements Archive {
 
         @Override
         public String getFullName() {
-            return archiveName + "!/" + name;
+            return archiveName + separator + name;
         }
 
         @Override

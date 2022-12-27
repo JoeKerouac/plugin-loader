@@ -20,6 +20,7 @@ import java.security.ProtectionDomain;
 import java.util.Arrays;
 
 import com.github.joekerouac.plugin.loader.PluginClassLoader;
+import com.github.joekerouac.plugin.loader.archive.impl.ZipArchive;
 import com.github.joekerouac.plugin.loader.function.ThrowableTaskWithResult;
 
 import lombok.Getter;
@@ -80,7 +81,8 @@ public class NestedPluginInvokedWrapper {
         if (!file.startsWith("file:/")) {
             throw new IllegalStateException(String.format("路径格式不对，当前url：[%s]", jarUrl));
         }
-        file = file.substring("file:".length(), file.indexOf("!/"));
+
+        file = file.substring("file:".length(), file.indexOf(ZipArchive.separator));
 
         String[] finalNeedParentLoad = needParentLoad;
 
@@ -95,7 +97,7 @@ public class NestedPluginInvokedWrapper {
 
         this.loader = PluginClassLoader.builder().loadByParentAfterFail(loadByParentAfterFail)
             .parent(parent != null ? parent : NestedPluginInvokedWrapper.class.getClassLoader())
-            .needLoadByParent(finalNeedParentLoad).classProvider(new NestedJarClassProvider(new File(file))).build();
+            .needLoadByParent(finalNeedParentLoad).provider(new NestedJarResourceProvider(new File(file))).build();
     }
 
     /**
@@ -144,7 +146,8 @@ public class NestedPluginInvokedWrapper {
                 if ("file".equals(result.getProtocol())) {
                     try {
                         if (result.toExternalForm().endsWith(".jar") || result.toExternalForm().endsWith(".zip")) {
-                            result = new URL("jar:".concat(result.toExternalForm()).concat("!/").concat(clsAsResource));
+                            result = new URL("jar:".concat(result.toExternalForm()).concat(ZipArchive.separator)
+                                .concat(clsAsResource));
                         } else if (new File(result.getFile()).isDirectory()) {
                             result = new URL(result, clsAsResource);
                         }
