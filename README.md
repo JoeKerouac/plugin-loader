@@ -11,6 +11,7 @@
 
 ## 嵌套jar打包
 
+
 使用打包插件打包：
 ```
 <project>
@@ -46,6 +47,9 @@
 ```
 
 项目根目录放入`fat.xml`，内容如下：
+
+> 插件描述xml详细说明文档：https://maven.apache.org/plugins/maven-assembly-plugin/assembly.html
+
 ```
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.1 https://maven.apache.org/xsd/assembly-2.1.1.xsd">
