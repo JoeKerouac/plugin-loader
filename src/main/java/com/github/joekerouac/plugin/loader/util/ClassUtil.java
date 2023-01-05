@@ -18,7 +18,7 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
-import com.github.joekerouac.plugin.loader.archive.impl.ZipArchive;
+import com.github.joekerouac.plugin.loader.jar.Handler;
 
 /**
  * class工具
@@ -28,6 +28,30 @@ import com.github.joekerouac.plugin.loader.archive.impl.ZipArchive;
  * @since 2.0.0
  */
 public class ClassUtil {
+
+    /**
+     * 获取指定class所在的jar文件，如果所在jar文件在是嵌套jar，则获取最外层jar
+     * 
+     * @param classInPlugin
+     *            class
+     * @return class所在的jar文件
+     */
+    public static File getRootJarFile(Class<?> classInPlugin) {
+        URL jarUrl = ClassUtil.where(classInPlugin);
+        // 校验当前类肯定在jar包中
+        if (!jarUrl.getProtocol().equals("jar")) {
+            throw new IllegalStateException(String.format("当前类 [%s] 没有在jar包中执行", classInPlugin.getName()));
+        }
+
+        String file = jarUrl.getFile();
+
+        if (!file.startsWith("file:/")) {
+            throw new IllegalStateException(String.format("路径格式不对，当前url：[%s]", jarUrl));
+        }
+
+        file = file.substring("file:".length(), file.indexOf(Handler.SEPARATOR));
+        return new File(file);
+    }
 
     /**
      * 获取指定类所在jar包的路径
@@ -54,8 +78,8 @@ public class ClassUtil {
                 if ("file".equals(result.getProtocol())) {
                     try {
                         if (result.toExternalForm().endsWith(".jar") || result.toExternalForm().endsWith(".zip")) {
-                            result = new URL("jar:".concat(result.toExternalForm()).concat(ZipArchive.separator)
-                                .concat(clsAsResource));
+                            result = new URL(
+                                "jar:".concat(result.toExternalForm()).concat(Handler.SEPARATOR).concat(clsAsResource));
                         } else if (new File(result.getFile()).isDirectory()) {
                             result = new URL(result, clsAsResource);
                         }

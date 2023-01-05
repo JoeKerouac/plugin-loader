@@ -13,86 +13,110 @@
 package com.github.joekerouac.plugin.loader.archive;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Iterator;
+import java.util.jar.Manifest;
 
 /**
+ *
  * @author JoeKerouac
- * @date 2022-01-07 16:55
- * @since 1.0.0
+ * @date 2023-01-04 13:30
+ * @since 3.0.0
+ * @see JarFileArchive
  */
-public interface Archive extends Iterable<Archive.Entry> {
+public interface Archive extends AutoCloseable {
+
+    EntryFilter FILTER_ALL = entry -> true;
 
     /**
-     * 根据路径获取entry
+     * Returns a URL that can be used to load the archive.
      * 
-     * @param name
-     *            entry名，例如com/test/Test.class
-     * @return entry
+     * @return the archive URL
+     * @throws MalformedURLException
+     *             if the URL is malformed
      */
-    Entry getEntry(String name);
+    URL getUrl() throws MalformedURLException;
 
     /**
-     * 获取archive对应的输入流
-     *
-     * @return 输入流，如果是目录则返回null
+     * Returns the manifest of the archive.
+     * 
+     * @return the manifest
+     * @throws IOException
+     *             if the manifest cannot be read
      */
-    InputStream getResource() throws IOException;
+    Manifest getManifest() throws IOException;
 
     /**
-     * entry
+     * Returns nested {@link Archive}s for entries that match the specified filters.
+     * 
+     * @param searchFilter
+     *            filter used to limit when additional sub-entry searching is required or {@code null} if all entries
+     *            should be considered.
+     * @param includeFilter
+     *            filter used to determine which entries should be included in the result or {@code null} if all entries
+     *            should be included
+     * @return the nested archives
+     * @throws IOException
+     *             on IO error
+     */
+    Iterator<Archive> getNestedArchives(EntryFilter searchFilter, EntryFilter includeFilter) throws IOException;
+
+    /**
+     * Return if the archive is exploded (already unpacked).
+     * 
+     * @return if the archive is exploded
+     */
+    default boolean isExploded() {
+        return false;
+    }
+
+    /**
+     * Closes the {@code Archive}, releasing any open resources.
+     * 
+     * @throws Exception
+     *             if an error occurs during close processing
+     */
+    @Override
+    default void close() throws Exception {
+
+    }
+
+    /**
+     * Represents a single entry in the archive.
      */
     interface Entry {
 
         /**
-         * 判断entry是否是目录
+         * Returns {@code true} if the entry represents a directory.
          * 
-         * @return 如果entry是目录则返回true
+         * @return if the entry is a directory
          */
         boolean isDirectory();
 
         /**
-         * 获取entry的名字
+         * Returns the name of the entry.
          * 
-         * @return entry的名字
+         * @return the name of the entry
          */
         String getName();
 
-        /**
-         * 获取entry的完整名字
-         * 
-         * @return entry的完整名字
-         */
-        String getFullName();
+    }
+
+    /**
+     * Strategy interface to filter {@link Entry Entries}.
+     */
+    @FunctionalInterface
+    interface EntryFilter {
 
         /**
-         * 获取entry data
+         * Apply the jar entry filter.
          * 
-         * @return entry data
+         * @param entry
+         *            the entry to filter
+         * @return {@code true} if the filter matches
          */
-        RandomAccessData getData();
-
-        /**
-         * 获取entry对应的输入流
-         * 
-         * @return 输入流，如果是目录则返回null
-         */
-        InputStream getResource() throws IOException;
-
-        /**
-         * 获取压缩方法，枚举：
-         * <li>{@link java.util.zip.ZipEntry#STORED}</li>
-         * <li>{@link java.util.zip.ZipEntry#DEFLATED}</li>
-         * 
-         * @return 压缩方法
-         */
-        int getMethod();
-
-        /**
-         * entry的大小（如果entry被压缩，则表示压缩后的大小）
-         * 
-         * @return 大小
-         */
-        int size();
+        boolean matches(Entry entry);
 
     }
 

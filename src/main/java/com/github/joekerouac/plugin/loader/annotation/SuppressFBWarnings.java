@@ -10,26 +10,31 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.github.joekerouac.plugin.loader.nested.handler;
+package com.github.joekerouac.plugin.loader.annotation;
 
-import java.net.URLStreamHandler;
-import java.net.URLStreamHandlerFactory;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
- * 嵌套jar url处理器工厂
+ * 用于忽略某些findbugs警告，可以引入findbugs官方的注解，也可以自定义，findbugs只关心注解名，不关心注解类所在的package
  *
  * @author JoeKerouac
- * @date 2022-12-26 19:32
- * @since 2.0.0
+ * @date 2023-01-05 09:34
+ * @since 3.0.0
  */
-public class NestedURLStreamHandlerFactory implements URLStreamHandlerFactory {
+@Retention(RetentionPolicy.CLASS)
+public @interface SuppressFBWarnings {
 
-    @Override
-    public URLStreamHandler createURLStreamHandler(String protocol) {
-        if (protocol.equals(NestedJarURLStreamHandler.PROTOCOL)) {
-            return new NestedJarURLStreamHandler();
-        }
+    /**
+     * 要忽略的警告列表
+     * 
+     * @return 警告列表
+     */
+    String[] value() default {};
 
-        return null;
-    }
+    /**
+     * 为什么忽略这个警告
+     */
+    String justification() default "";
+
 }

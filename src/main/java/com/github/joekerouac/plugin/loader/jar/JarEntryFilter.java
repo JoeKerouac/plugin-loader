@@ -10,21 +10,25 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.github.joekerouac.plugin.loader.util;
+package com.github.joekerouac.plugin.loader.jar;
 
 /**
+ * Interface that can be used to filter and optionally rename jar entries.
  *
+ * @author JoeKerouac
+ * @date 2023-01-04 13:30
+ * @since 3.0.0
  */
-public final class Bytes {
+interface JarEntryFilter {
 
-    private Bytes() {}
-
-    public static long littleEndianValue(byte[] bytes, int offset, int length) {
-        long value = 0;
-        for (int i = length - 1; i >= 0; i--) {
-            value = ((value << 8) | (bytes[offset + i] & 0xFF));
-        }
-        return value;
-    }
+    /**
+     * Apply the jar entry filter.
+     * 
+     * @param name
+     *            the current entry name. This may be different that the original entry name if a previous filter has
+     *            been applied
+     * @return the new name of the entry or {@code null} if the entry should not be included.
+     */
+    AsciiBytes apply(AsciiBytes name);
 
 }

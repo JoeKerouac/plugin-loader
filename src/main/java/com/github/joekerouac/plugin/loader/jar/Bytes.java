@@ -10,35 +10,25 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.github.joekerouac.plugin.loader.nested.handler;
-
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
+package com.github.joekerouac.plugin.loader.jar;
 
 /**
- * 嵌套jar url处理器
+ * Utilities for dealing with bytes from ZIP files.
  *
  * @author JoeKerouac
- * @date 2022-12-24 19:24
- * @since 2.0.0
+ * @date 2023-01-04 13:30
+ * @since 3.0.0
  */
-public class NestedJarURLStreamHandler extends URLStreamHandler {
+final class Bytes {
 
-    public static final String PROTOCOL = "nested";
+    private Bytes() {}
 
-    @Override
-    protected URLConnection openConnection(URL u) throws IOException {
-        return new NestedJarURLConnection(u);
-    }
-
-    @Override
-    protected void parseURL(URL u, String spec, int start, int limit) {
-        if (!spec.startsWith(PROTOCOL)) {
-            throw new UnsupportedOperationException("不支持的协议：" + spec);
+    static long littleEndianValue(byte[] bytes, int offset, int length) {
+        long value = 0;
+        for (int i = length - 1; i >= 0; i--) {
+            value = ((value << 8) | (bytes[offset + i] & 0xFF));
         }
-
-        setURL(u, PROTOCOL, null, -1, null, null, spec.substring(PROTOCOL.length() + 1), null, null);
+        return value;
     }
+
 }

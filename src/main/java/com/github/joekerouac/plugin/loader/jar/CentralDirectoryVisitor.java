@@ -10,29 +10,23 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.github.joekerouac.plugin.loader;
+package com.github.joekerouac.plugin.loader.jar;
 
-import java.net.URL;
-import java.util.List;
-import java.util.function.Function;
+import com.github.joekerouac.plugin.loader.data.RandomAccessData;
 
 /**
- * resource提供者，根据资源名提供URL
- * 
- * @since 1.0.0
+ * Callback visitor triggered by {@link CentralDirectoryParser}.
+ *
  * @author JoeKerouac
- * @version 2.0.0
- * @date 2020-09-20 16:11
+ * @date 2023-01-04 13:30
+ * @since 3.0.0
  */
-public interface ResourceProvider extends Function<String, List<URL>> {
+interface CentralDirectoryVisitor {
 
-    /**
-     * 根据提供的资源名获取资源
-     * 
-     * @param s
-     *            资源名
-     * @return 资源
-     */
-    List<URL> apply(String s);
+    void visitStart(CentralDirectoryEndRecord endRecord, RandomAccessData centralDirectoryData);
+
+    void visitFileHeader(CentralDirectoryFileHeader fileHeader, long dataOffset);
+
+    void visitEnd();
 
 }

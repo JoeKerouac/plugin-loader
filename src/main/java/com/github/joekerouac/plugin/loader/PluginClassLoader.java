@@ -13,35 +13,31 @@
 package com.github.joekerouac.plugin.loader;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Field;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLStreamHandlerFactory;
-import java.util.*;
+import java.net.URLConnection;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 import com.github.joekerouac.plugin.loader.counter.NopClassLoadCounter;
 import com.github.joekerouac.plugin.loader.counter.SunClassLoadCounter;
-import com.github.joekerouac.plugin.loader.util.EnumerationUtil;
-import com.github.joekerouac.plugin.loader.util.IOUtils;
-
-import lombok.Builder;
+import com.github.joekerouac.plugin.loader.jar.Handler;
 
 /**
- * 定制插件类加载器，特性如下：
- * 
- * <li>打破双亲委派，只有指定类才会优先从父加载器中加载，否则优先从本加载器中加载（Java核心包系统已经强制指定从父加载器中加载了）</li>
  *
  * @author JoeKerouac
- * @date 2021-12-23 11:05
- * @since 1.0.0
+ * @date 2023-01-04 13:30
+ * @since 2.0.0
  */
-public final class PluginClassLoader extends URLClassLoader {
+public class PluginClassLoader extends URLClassLoader {
 
-    /**
-     * class文件后缀
-     */
-    private static final String CLASS_SUFFIX = ".class";
+    static {
+        ClassLoader.registerAsParallelCapable();
+        com.github.joekerouac.plugin.loader.jar.JarFile.registerUrlProtocolHandler();
+    }
 
     /**
      * ExtClassLoader的类名
@@ -52,8 +48,6 @@ public final class PluginClassLoader extends URLClassLoader {
      * 类加载信息计数
      */
     private static final ClassLoadCounter COUNTER;
-
-    private static final Field packagesField;
 
     static {
         // java8以及以下版本号：1.8.x_xxx、1.7.x_xxx等
@@ -86,28 +80,10 @@ public final class PluginClassLoader extends URLClassLoader {
             }
 
             COUNTER = counter;
-
-            packagesField = ClassLoader.class.getDeclaredField("packages");
-            packagesField.setAccessible(true);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-
-    /**
-     * 需要父加载器加载的类
-     */
-    private final String[] needLoadByParent;
-
-    /**
-     * 当本加载器加载类失败时是否允许父加载器加载
-     */
-    private final boolean loadByParentAfterFail;
-
-    /**
-     * 父加载器，不能为空
-     */
-    private final ClassLoader parent;
 
     /**
      * sun.misc.Launcher$ExtClassLoader，父级是BootstrapClassLoader，BootstrapClassLoader用于加载系统核心class，而ExtClassLoader
@@ -116,52 +92,29 @@ public final class PluginClassLoader extends URLClassLoader {
     private final ClassLoader extClassLoader;
 
     /**
-     * 资源提供器
+     * 需要父加载器加载的类
      */
-    private final ResourceProvider provider;
-
-    private final HashMap<String, Package> packages;
+    private final String[] needLoadByParent;
 
     /**
-     * 插件类加载器
-     *
-     * @param classpath
-     *            插件jar包链接，允许为null
-     * @param parent
-     *            父加载器，不能为空
-     * @param extClassLoader
-     *            ExtClassLoader，允许为空，为空时必须能从parent或者本类的加载器上获取到
-     * @param urlStreamHandlerFactory
-     *            通过URL获取输入流的工厂，允许为null
-     * @param needLoadByParent
-     *            必须父加载器来加载的类，允许为null
-     * @param loadByParentAfterFail
-     *            当本加载器加载类失败时是否允许父加载器加载，true表示允许
-     * @param provider
-     *            resource提供者，如果urls里边的jar包都找不到指定类，那么将会去这里搜索，允许为null
+     * 父级加载器
      */
-    @Builder
-    private PluginClassLoader(URL[] classpath, ClassLoader parent, ClassLoader extClassLoader,
-        URLStreamHandlerFactory urlStreamHandlerFactory, String[] needLoadByParent, boolean loadByParentAfterFail,
-        ResourceProvider provider) {
-        super(classpath == null ? new URL[0] : classpath, parent, urlStreamHandlerFactory);
-        if (parent == null) {
-            throw new NullPointerException("parent不能为空");
-        }
+    private final ClassLoader parent;
 
+    /**
+     * 当本加载器加载类失败时是否允许父加载器加载
+     */
+    private final boolean loadByParentAfterFail;
+
+    public PluginClassLoader(URL[] urls, ClassLoader parent, String[] needLoadByParent, boolean loadByParentAfterFail) {
+        super(urls, null);
         this.parent = parent;
-        this.provider = provider;
+        this.loadByParentAfterFail = loadByParentAfterFail;
         this.needLoadByParent =
             needLoadByParent == null ? new String[0] : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
 
-        this.loadByParentAfterFail = loadByParentAfterFail;
-
-        ClassLoader usedExtClassLoader = extClassLoader;
-        // 如果外部没有传，我们自己决策
         // 先尝试从本类的类加载器上查找
-        if (usedExtClassLoader == null) {
-            usedExtClassLoader = searchExtClassLoader(PluginClassLoader.class.getClassLoader());
-        }
+        ClassLoader usedExtClassLoader = searchExtClassLoader(PluginClassLoader.class.getClassLoader());
 
         // 如果本类加载器上没有查找到，从传入的class loader中查找
         if (usedExtClassLoader == null) {
@@ -183,17 +136,13 @@ public final class PluginClassLoader extends URLClassLoader {
             throw new IllegalArgumentException(
                 String.format("传入的ExtClassLoader不是 [%s] 的实例, [%s]", EXT_CLASS_LOADER_CLASS_NAME, usedExtClassLoader));
         }
+
         this.extClassLoader = usedExtClassLoader;
-        try {
-            this.packages = (HashMap<String, Package>)packagesField.get(this);
-        } catch (Throwable e) {
-            throw new RuntimeException("获取packages字段失败", e);
-        }
     }
 
     /**
      * 查找ExtClassLoader
-     * 
+     *
      * @param current
      *            当前ClassLoader
      * @return ExtClassLoader，可能为空
@@ -212,55 +161,55 @@ public final class PluginClassLoader extends URLClassLoader {
 
     @Override
     public URL findResource(String name) {
-        URL resource = super.findResource(name);
-        if (resource == null && provider != null) {
-            List<URL> list = provider.apply(name);
-            if (!list.isEmpty()) {
-                resource = list.get(0);
-            }
+        Handler.setUseFastConnectionExceptions(true);
+        try {
+            return super.findResource(name);
+        } finally {
+            Handler.setUseFastConnectionExceptions(false);
         }
-
-        return resource;
     }
 
     @Override
     public Enumeration<URL> findResources(String name) throws IOException {
-        List<URL> list = new ArrayList<>();
-        EnumerationUtil.addToList(list, super.findResources(name));
-
-        if (provider != null) {
-            list.addAll(provider.apply(name));
+        Handler.setUseFastConnectionExceptions(true);
+        try {
+            return new UseFastConnectionExceptionsEnumeration(super.findResources(name));
+        } finally {
+            Handler.setUseFastConnectionExceptions(false);
         }
-        return EnumerationUtil.convert(list);
     }
 
-    @Override
-    protected Class<?> findClass(String name) throws ClassNotFoundException {
-        String classPath = name.replaceAll("\\.", "/").concat(CLASS_SUFFIX);
-
-        URL classUrl = Optional.ofNullable(provider).map(p -> p.apply(classPath)).filter(list -> !list.isEmpty())
-            .map(list -> list.get(0)).orElse(null);
-
-        if (classUrl == null) {
-            return super.findClass(name);
-        }
-
-        InputStream inputStream;
+    /**
+     * 使用父加载器加载class
+     *
+     * @param loader
+     *            用于加载class的ClassLoader
+     * @param name
+     *            class name
+     * @param throwIfClassNotFound
+     *            如果父加载器加载不到指定类是抛出异常还是返回null，true表示抛出异常，false表示返回null
+     * @return 加载到的class，throwIfClassNotFound为false的情况下可能返回null
+     * @throws ClassNotFoundException
+     *             如果父加载器不能找到指定class并且throwIfClassNotFound是true时抛出该异常
+     */
+    private Class<?> loadClass(ClassLoader loader, String name, boolean throwIfClassNotFound)
+        throws ClassNotFoundException {
         try {
-            inputStream = classUrl.openStream();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            return loader.loadClass(name);
+        } catch (ClassNotFoundException e) {
+            // 如果父加载器加载不到，这里应该根据传入标识判断是否抛出异常
+            if (throwIfClassNotFound) {
+                throw e;
+            }
+            return null;
         }
-
-        byte[] classData = IOUtils.read(inputStream);
-        return defClass(name, classData, 0, classData.length);
     }
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         // 先判断是不是必须父类加载的，如果类是系统类或者是用户指定了需要父加载器加载的，使用父加载器加载
-        boolean loadByParent = extClassLoader.getResource(name.replaceAll("\\.", "/").concat(".class")) != null
-            || Arrays.stream(needLoadByParent).anyMatch(name::startsWith);
+        boolean loadByExt = extClassLoader.getResource(name.replaceAll("\\.", "/").concat(".class")) != null;
+        boolean loadByParent = Arrays.stream(needLoadByParent).anyMatch(name::startsWith);
 
         // 加锁，准备加载
         synchronized (getClassLoadingLock(name)) {
@@ -268,33 +217,34 @@ public final class PluginClassLoader extends URLClassLoader {
             Class<?> clazz = findLoadedClass(name);
 
             if (clazz == null) {
-                long t0 = System.nanoTime();
                 // 如果是需要父加载器加载则直接调用父类加载器加载
-                if (loadByParent) {
+                if (loadByExt) {
+                    clazz = loadClass(extClassLoader, name, false);
+                } else if (loadByParent) {
                     // 这里不应该抛出异常，找不到了还可以使用子加载器加载
-                    clazz = loadByParent(name, false);
+                    clazz = loadClass(parent, name, false);
                 }
 
                 if (clazz == null) {
                     try {
-                        // 构造的时候传入的URL，从那个里边搜索类定义并加载
+                        long t0 = System.nanoTime();
+                        // 调用本类加载器查找类
                         clazz = findClass(name);
-
+                        long t1 = System.nanoTime();
+                        // 统计信息，因为我们没有调用父类的loadClass（没有走到这段逻辑），所以需要自己统计
+                        COUNTER.addTime(t1 - t0);
+                        COUNTER.addElapsedTimeFrom(t1);
+                        COUNTER.increment();
                     } catch (ClassNotFoundException e) {
                         // 如果我们没有优先使用父加载器加载，并且允许对加载失败的类使用父加载器加载，则尝试使用父加载器加载，加载不到就抛出异常，否则直接抛出异常
-                        if (!loadByParent && loadByParentAfterFail) {
-                            clazz = loadByParent(name, true);
+                        if (!loadByExt && !loadByParent && loadByParentAfterFail) {
+                            clazz = loadClass(parent, name, true);
                         } else {
                             throw e;
                         }
                     }
                 }
 
-                long t1 = System.nanoTime();
-                // 统计信息，因为我们没有调用父类的loadClass（没有走到这段逻辑），所以需要自己统计
-                COUNTER.addTime(t1 - t0);
-                COUNTER.addElapsedTimeFrom(t1);
-                COUNTER.increment();
             }
 
             // 链接
@@ -306,53 +256,129 @@ public final class PluginClassLoader extends URLClassLoader {
         }
     }
 
-    /**
-     * 定义Class
-     *
-     * @param name
-     *            class名
-     * @param data
-     *            class数据
-     * @param offset
-     *            class数据在data数组中的起始位置
-     * @param len
-     *            class数据的实际长度
-     * @return class
-     */
-    public Class<?> defClass(String name, byte[] data, int offset, int len) {
-        synchronized (packages) {
-            String packageName = name.substring(0, name.lastIndexOf("."));
-            Package old = getPackage(packageName);
-            if (old == null) {
-                definePackage(packageName, null, null, null, null, null, null, null);
-            }
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        Handler.setUseFastConnectionExceptions(true);
+        try {
+            definePackageIfNecessary(name);
+            return super.findClass(name);
+        } finally {
+            Handler.setUseFastConnectionExceptions(false);
         }
-
-        return super.defineClass(name, data, offset, len);
     }
 
     /**
-     * 使用父加载器加载class
-     *
-     * @param name
-     *            class name
-     * @param throwIfClassNotFound
-     *            如果父加载器加载不到指定类是抛出异常还是返回null，true表示抛出异常，false表示返回null
-     * @return 加载到的class，throwIfClassNotFound为false的情况下可能返回null
-     * @throws ClassNotFoundException
-     *             如果父加载器不能找到指定class并且throwIfClassNotFound是true时抛出该异常
+     * Define a package before a {@code findClass} call is made. This is necessary to ensure that the appropriate
+     * manifest for nested JARs is associated with the package.
+     * 
+     * @param className
+     *            the class name being found
      */
-    private Class<?> loadByParent(String name, boolean throwIfClassNotFound) throws ClassNotFoundException {
-        try {
-            // 注意，这里要传入parent，使用父加载器去加载，不应该传入this，会死循环，而且达不到我们只从父加载器加载类的目的；
-            return parent.loadClass(name);
-        } catch (ClassNotFoundException e) {
-            // 如果父加载器加载不到，这里应该根据传入标识判断是否抛出异常
-            if (throwIfClassNotFound) {
-                throw e;
+    private void definePackageIfNecessary(String className) {
+        int lastDot = className.lastIndexOf('.');
+        if (lastDot >= 0) {
+            String packageName = className.substring(0, lastDot);
+            if (getPackage(packageName) == null) {
+                try {
+                    definePackage(className, packageName);
+                } catch (IllegalArgumentException ex) {
+                    // 因为我们允许并行，所以可能会出现并行创建package的场景，其中会有一个成功，其他失败，并且抛出IllegalArgumentException异常
+                    if (getPackage(packageName) == null) {
+                        // 理论上不可能走到这里
+                        throw new AssertionError(
+                            "Package " + packageName + " has already been defined but it could not be found");
+                    }
+                }
             }
-            return null;
         }
+    }
+
+    private void definePackage(String className, String packageName) {
+        String packageEntryName = packageName.replace('.', '/') + "/";
+        String classEntryName = className.replace('.', '/') + ".class";
+        for (URL url : getURLs()) {
+            try {
+                URLConnection connection = url.openConnection();
+                if (connection instanceof JarURLConnection) {
+                    JarURLConnection jarURLConnection = (JarURLConnection)connection;
+                    JarFile jarFile = jarURLConnection.getJarFile();
+                    if (jarFile.getEntry(classEntryName) != null && jarFile.getEntry(packageEntryName) != null
+                        && jarFile.getManifest() != null) {
+                        definePackage(packageName, jarFile.getManifest(), url);
+                        return;
+                    }
+                }
+            } catch (IOException ex) {
+                // Ignore
+            }
+        }
+    }
+
+    @Override
+    protected Package definePackage(String name, Manifest man, URL url) throws IllegalArgumentException {
+        return super.definePackage(name, man, url);
+    }
+
+    @Override
+    protected Package definePackage(String name, String specTitle, String specVersion, String specVendor,
+        String implTitle, String implVersion, String implVendor, URL sealBase) throws IllegalArgumentException {
+        return super.definePackage(name, specTitle, specVersion, specVendor, implTitle, implVersion, implVendor,
+            sealBase);
+    }
+
+    /**
+     * Clear URL caches.
+     */
+    public void clearCache() {
+        for (URL url : getURLs()) {
+            try {
+                URLConnection connection = url.openConnection();
+                if (connection instanceof JarURLConnection) {
+                    clearCache(connection);
+                }
+            } catch (IOException ex) {
+                // Ignore
+            }
+        }
+
+    }
+
+    private void clearCache(URLConnection connection) throws IOException {
+        Object jarFile = ((JarURLConnection)connection).getJarFile();
+        if (jarFile instanceof com.github.joekerouac.plugin.loader.jar.JarFile) {
+            ((com.github.joekerouac.plugin.loader.jar.JarFile)jarFile).clearCache();
+        }
+    }
+
+    private static class UseFastConnectionExceptionsEnumeration implements Enumeration<URL> {
+
+        private final Enumeration<URL> delegate;
+
+        UseFastConnectionExceptionsEnumeration(Enumeration<URL> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            Handler.setUseFastConnectionExceptions(true);
+            try {
+                return this.delegate.hasMoreElements();
+            } finally {
+                Handler.setUseFastConnectionExceptions(false);
+            }
+
+        }
+
+        @Override
+        public URL nextElement() {
+            Handler.setUseFastConnectionExceptions(true);
+            try {
+                return this.delegate.nextElement();
+            } finally {
+                Handler.setUseFastConnectionExceptions(false);
+            }
+        }
+
     }
 
 }
