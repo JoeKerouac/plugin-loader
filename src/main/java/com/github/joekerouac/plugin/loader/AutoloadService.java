@@ -17,10 +17,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 import com.github.joekerouac.plugin.loader.archive.Archive;
 import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
@@ -51,30 +48,32 @@ public class AutoloadService {
     /**
      * 构造器
      *
-     * @param classpath
+     * @param archives
      *            添加到class path上的jar集合
      */
-    public AutoloadService(List<Archive> classpath) {
-        this(classpath, null, false, null);
+    public AutoloadService(List<Archive> archives) {
+        this(archives, Collections.emptyList(), null, false, null);
     }
 
     /**
      * 构造器
      *
-     * @param classpath
+     * @param archives
      *            添加到class path上的jar集合
      * @param needParentLoad
      *            需要父加载器加载的类
      */
-    public AutoloadService(List<Archive> classpath, String[] needParentLoad) {
-        this(classpath, needParentLoad, false, null);
+    public AutoloadService(List<Archive> archives, String[] needParentLoad) {
+        this(archives, Collections.emptyList(), needParentLoad, false, null);
     }
 
     /**
      * 构造器
      *
-     * @param classpath
+     * @param archives
      *            添加到class path上的jar集合
+     * @param classpath
+     *            添加到class path的其他内容
      * @param needParentLoad
      *            需要父加载器加载的类
      * @param loadByParentAfterFail
@@ -82,10 +81,10 @@ public class AutoloadService {
      * @param parent
      *            父加载器，如果为空则使用当前类的加载器作为父加载器
      */
-    public AutoloadService(List<Archive> classpath, String[] needParentLoad, boolean loadByParentAfterFail,
-        ClassLoader parent) {
-        List<URL> classpathUrl = new ArrayList<>();
-        for (Archive archive : classpath) {
+    public AutoloadService(List<Archive> archives, List<URL> classpath, String[] needParentLoad,
+        boolean loadByParentAfterFail, ClassLoader parent) {
+        List<URL> classpathUrl = new ArrayList<>(classpath);
+        for (Archive archive : archives) {
             try {
                 classpathUrl.add(archive.getUrl());
                 Iterator<Archive> nestedArchives = archive.getNestedArchives(Archive.FILTER_ALL,
