@@ -161,21 +161,62 @@ public class PluginClassLoader extends URLClassLoader {
 
     @Override
     public URL findResource(String name) {
+        URL url;
         Handler.setUseFastConnectionExceptions(true);
         try {
-            return super.findResource(name);
+            url = super.findResource(name);
+        } finally {
+            Handler.setUseFastConnectionExceptions(false);
+        }
+
+        if (url != null) {
+            return url;
+        }
+
+        return parent.getResource(name);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Enumeration<URL> findResources(String name) throws IOException {
+        Enumeration<URL> parentResources = parent.getResources(name);
+
+        Handler.setUseFastConnectionExceptions(true);
+        try {
+            Enumeration<URL> currentResources = new UseFastConnectionExceptionsEnumeration(super.findResources(name));
+            return new MergedEnumeration<>(currentResources, parentResources);
         } finally {
             Handler.setUseFastConnectionExceptions(false);
         }
     }
 
-    @Override
-    public Enumeration<URL> findResources(String name) throws IOException {
-        Handler.setUseFastConnectionExceptions(true);
-        try {
-            return new UseFastConnectionExceptionsEnumeration(super.findResources(name));
-        } finally {
-            Handler.setUseFastConnectionExceptions(false);
+    private static class MergedEnumeration<E> implements Enumeration<E> {
+
+        private final Enumeration<E>[] enumerations;
+
+        private int index = 0;
+
+        public MergedEnumeration(Enumeration<E>... enumerations) {
+            this.enumerations = enumerations;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            if (index >= enumerations.length) {
+                return false;
+            }
+
+            if (enumerations[index].hasMoreElements()) {
+                return true;
+            }
+
+            index++;
+            return hasMoreElements();
+        }
+
+        @Override
+        public E nextElement() {
+            return enumerations[index].nextElement();
         }
     }
 
