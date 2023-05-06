@@ -13,6 +13,7 @@
 package com.github.joekerouac.plugin.loader.util;
 
 import java.io.File;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.CodeSource;
@@ -28,6 +29,36 @@ import com.github.joekerouac.plugin.loader.jar.Handler;
  * @since 2.0.0
  */
 public class ClassUtil {
+
+    /** The package separator character: '.' */
+    private static final char PACKAGE_SEPARATOR = '.';
+
+    /** The ".class" file suffix */
+    private static final String CLASS_FILE_SUFFIX = ".class";
+
+    /**
+     * 获取指定class的class文件的输入流
+     *
+     * @param clazz
+     *            class
+     * @return 对应的输入流
+     */
+    public static InputStream getClassAsStream(Class<?> clazz) {
+        return clazz.getResourceAsStream(getClassFileName(clazz));
+    }
+
+    /**
+     * 获取class的class文件名（不包含包名，例如：String.class）
+     *
+     * @param clazz
+     *            the class
+     * @return .class文件名
+     */
+    public static String getClassFileName(Class<?> clazz) {
+        String className = clazz.getName();
+        int lastDotIndex = className.lastIndexOf(PACKAGE_SEPARATOR);
+        return className.substring(lastDotIndex + 1) + CLASS_FILE_SUFFIX;
+    }
 
     /**
      * 获取指定class所在的jar文件，如果所在jar文件在是嵌套jar，则获取最外层jar

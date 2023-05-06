@@ -108,7 +108,6 @@ public class PluginClassLoader extends URLClassLoader {
 
     public PluginClassLoader(URL[] urls, ClassLoader parent, String[] needLoadByParent, boolean loadByParentAfterFail) {
         super(urls, null);
-        this.parent = parent;
         this.loadByParentAfterFail = loadByParentAfterFail;
         this.needLoadByParent =
             needLoadByParent == null ? new String[0] : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
@@ -138,6 +137,11 @@ public class PluginClassLoader extends URLClassLoader {
         }
 
         this.extClassLoader = usedExtClassLoader;
+        if (parent == null) {
+            this.parent = extClassLoader;
+        } else {
+            this.parent = parent;
+        }
     }
 
     /**
@@ -187,36 +191,6 @@ public class PluginClassLoader extends URLClassLoader {
             return new MergedEnumeration<>(currentResources, parentResources);
         } finally {
             Handler.setUseFastConnectionExceptions(false);
-        }
-    }
-
-    private static class MergedEnumeration<E> implements Enumeration<E> {
-
-        private final Enumeration<E>[] enumerations;
-
-        private int index = 0;
-
-        public MergedEnumeration(Enumeration<E>... enumerations) {
-            this.enumerations = enumerations;
-        }
-
-        @Override
-        public boolean hasMoreElements() {
-            if (index >= enumerations.length) {
-                return false;
-            }
-
-            if (enumerations[index].hasMoreElements()) {
-                return true;
-            }
-
-            index++;
-            return hasMoreElements();
-        }
-
-        @Override
-        public E nextElement() {
-            return enumerations[index].nextElement();
         }
     }
 
@@ -388,6 +362,36 @@ public class PluginClassLoader extends URLClassLoader {
         Object jarFile = ((JarURLConnection)connection).getJarFile();
         if (jarFile instanceof com.github.joekerouac.plugin.loader.jar.JarFile) {
             ((com.github.joekerouac.plugin.loader.jar.JarFile)jarFile).clearCache();
+        }
+    }
+
+    private static class MergedEnumeration<E> implements Enumeration<E> {
+
+        private final Enumeration<E>[] enumerations;
+
+        private int index = 0;
+
+        public MergedEnumeration(Enumeration<E>... enumerations) {
+            this.enumerations = enumerations;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            if (index >= enumerations.length) {
+                return false;
+            }
+
+            if (enumerations[index].hasMoreElements()) {
+                return true;
+            }
+
+            index++;
+            return hasMoreElements();
+        }
+
+        @Override
+        public E nextElement() {
+            return enumerations[index].nextElement();
         }
     }
 

@@ -15,7 +15,11 @@ package com.github.joekerouac.plugin.loader;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 import com.github.joekerouac.plugin.loader.archive.Archive;
 import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
@@ -62,17 +66,29 @@ public class PluginClassLoaderUtil {
      * @param archives
      *            添加到class path上的jar集合
      * @param classpath
+     *            classpath
+     */
+    public static PluginClassLoader build(List<Archive> archives, List<URL> classpath) {
+        return build(archives, classpath, null, false, null);
+    }
+
+    /**
+     * 构造器
+     *
+     * @param archives
+     *            添加到class path上的jar集合，会自动遍历该jar中lib目录下的包
+     * @param classpath
      *            添加到class path的其他内容
      * @param needParentLoad
      *            需要父加载器加载的类
      * @param loadByParentAfterFail
      *            当本加载器加载类失败时是否允许父加载器加载，true表示允许
      * @param parent
-     *            父加载器，如果为空则使用当前类的加载器作为父加载器
+     *            父加载器，如果为空则使用extClassLoader
      */
     public static PluginClassLoader build(List<Archive> archives, List<URL> classpath, String[] needParentLoad,
         boolean loadByParentAfterFail, ClassLoader parent) {
-        List<URL> classpathUrl = new ArrayList<>(classpath);
+        List<URL> classpathUrl = new ArrayList<>(classpath == null ? Collections.emptyList() : classpath);
         for (Archive archive : archives) {
             try {
                 classpathUrl.add(archive.getUrl());
@@ -103,8 +119,7 @@ public class PluginClassLoaderUtil {
                 finalNeedParentLoad.length - NEED_PARENT_LOAD.length, NEED_PARENT_LOAD.length);
         }
 
-        return new PluginClassLoader(classpathUrl.toArray(new URL[0]),
-            parent == null ? PluginClassLoaderUtil.class.getClassLoader() : parent, finalNeedParentLoad,
+        return new PluginClassLoader(classpathUrl.toArray(new URL[0]), parent, finalNeedParentLoad,
             loadByParentAfterFail);
     }
 
