@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
@@ -30,11 +31,90 @@ import com.github.joekerouac.plugin.loader.jar.Handler;
  */
 public class ClassUtil {
 
+    /**
+     * ExtClassLoader的类名
+     */
+    private static final String EXT_CLASS_LOADER_CLASS_NAME;
+
     /** The package separator character: '.' */
     private static final char PACKAGE_SEPARATOR = '.';
 
     /** The ".class" file suffix */
     private static final String CLASS_FILE_SUFFIX = ".class";
+
+    static {
+        // java8以及以下版本号：1.8.x_xxx、1.7.x_xxx等
+        // java8以上、Java17以下（目前是到17，以后升级不知道规则是否会变）版本号：9.x.x、11.x.x、17.x.x等
+        String version = System.getProperty("java.version");
+        if (version.startsWith("1.")) {
+            version = version.substring(2, 3);
+        } else {
+            version = version.substring(0, version.indexOf("."));
+        }
+
+        int versionNum = Integer.parseInt(version);
+
+        if (versionNum <= 8) {
+            EXT_CLASS_LOADER_CLASS_NAME = "sun.misc.Launcher$ExtClassLoader";
+        } else {
+            // JDK9开始ExtClassLoader更改为了PlatformClassLoader
+            EXT_CLASS_LOADER_CLASS_NAME = "jdk.internal.loader.ClassLoaders$PlatformClassLoader";
+        }
+    }
+
+    /**
+     * 获取extClassLoader
+     * 
+     * @param current
+     *            当前class loader
+     * @return extClassLoader
+     */
+    public static URLClassLoader getExtClassLoader(ClassLoader current) {
+        // 先尝试从本类的类加载器上查找
+        ClassLoader extClassLoader = searchExtClassLoader(ClassUtil.class.getClassLoader());
+
+        // 如果本类加载器上没有查找到，从传入的class loader中查找
+        if (extClassLoader == null) {
+            extClassLoader = searchExtClassLoader(current);
+        }
+
+        // 传入的class loader也没有查找到，从当前线程上下文的class loader中查找
+        if (extClassLoader == null) {
+            extClassLoader = searchExtClassLoader(Thread.currentThread().getContextClassLoader());
+        }
+
+        // 如果还是null，没办法，只能抛出异常了
+        if (extClassLoader == null) {
+            throw new IllegalArgumentException("当前没有传入ExtClassLoader，系统也无法决策出来ExtClassLoader");
+        }
+
+        // 如果类名不一致也抛出异常（此时是外部传入了ExtClassLoader，但是传错了）
+        if (!extClassLoader.getClass().getName().startsWith(EXT_CLASS_LOADER_CLASS_NAME)) {
+            throw new IllegalArgumentException(
+                String.format("传入的ExtClassLoader不是 [%s] 的实例, [%s]", EXT_CLASS_LOADER_CLASS_NAME, extClassLoader));
+        }
+
+        return (URLClassLoader)extClassLoader;
+    }
+
+    /**
+     * 查找ExtClassLoader
+     *
+     * @param current
+     *            当前ClassLoader
+     * @return ExtClassLoader，可能为空
+     */
+    private static ClassLoader searchExtClassLoader(ClassLoader current) {
+        if (current == null) {
+            return null;
+        }
+
+        if (current.getClass().getName().equals(EXT_CLASS_LOADER_CLASS_NAME)) {
+            return current;
+        } else {
+            return searchExtClassLoader(current.getParent());
+        }
+    }
 
     /**
      * 获取指定class的class文件的输入流

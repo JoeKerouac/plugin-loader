@@ -25,6 +25,7 @@ import java.util.jar.Manifest;
 import com.github.joekerouac.plugin.loader.counter.NopClassLoadCounter;
 import com.github.joekerouac.plugin.loader.counter.SunClassLoadCounter;
 import com.github.joekerouac.plugin.loader.jar.Handler;
+import com.github.joekerouac.plugin.loader.util.ClassUtil;
 
 /**
  *
@@ -112,54 +113,11 @@ public class PluginClassLoader extends URLClassLoader {
         this.needLoadByParent =
             needLoadByParent == null ? new String[0] : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
 
-        // 先尝试从本类的类加载器上查找
-        ClassLoader usedExtClassLoader = searchExtClassLoader(PluginClassLoader.class.getClassLoader());
-
-        // 如果本类加载器上没有查找到，从传入的class loader中查找
-        if (usedExtClassLoader == null) {
-            usedExtClassLoader = searchExtClassLoader(parent);
-        }
-
-        // 传入的class loader也没有查找到，从当前线程上下文的class loader中查找
-        if (usedExtClassLoader == null) {
-            usedExtClassLoader = searchExtClassLoader(Thread.currentThread().getContextClassLoader());
-        }
-
-        // 如果还是null，没办法，只能抛出异常了
-        if (usedExtClassLoader == null) {
-            throw new IllegalArgumentException("当前没有传入ExtClassLoader，系统也无法决策出来ExtClassLoader");
-        }
-
-        // 如果类名不一致也抛出异常（此时是外部传入了ExtClassLoader，但是传错了）
-        if (!usedExtClassLoader.getClass().getName().startsWith(EXT_CLASS_LOADER_CLASS_NAME)) {
-            throw new IllegalArgumentException(
-                String.format("传入的ExtClassLoader不是 [%s] 的实例, [%s]", EXT_CLASS_LOADER_CLASS_NAME, usedExtClassLoader));
-        }
-
-        this.extClassLoader = usedExtClassLoader;
+        this.extClassLoader = ClassUtil.getExtClassLoader(parent);
         if (parent == null) {
             this.parent = extClassLoader;
         } else {
             this.parent = parent;
-        }
-    }
-
-    /**
-     * 查找ExtClassLoader
-     *
-     * @param current
-     *            当前ClassLoader
-     * @return ExtClassLoader，可能为空
-     */
-    private ClassLoader searchExtClassLoader(ClassLoader current) {
-        if (current == null) {
-            return null;
-        }
-
-        if (current.getClass().getName().equals(EXT_CLASS_LOADER_CLASS_NAME)) {
-            return current;
-        } else {
-            return searchExtClassLoader(current.getParent());
         }
     }
 
