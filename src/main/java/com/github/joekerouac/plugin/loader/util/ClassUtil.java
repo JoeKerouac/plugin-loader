@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
@@ -69,7 +68,7 @@ public class ClassUtil {
      *            当前class loader
      * @return extClassLoader
      */
-    public static URLClassLoader getExtClassLoader(ClassLoader current) {
+    public static ClassLoader getExtClassLoader(ClassLoader current) {
         // 先尝试从本类的类加载器上查找
         ClassLoader extClassLoader = searchExtClassLoader(ClassUtil.class.getClassLoader());
 
@@ -94,7 +93,7 @@ public class ClassUtil {
                 String.format("传入的ExtClassLoader不是 [%s] 的实例, [%s]", EXT_CLASS_LOADER_CLASS_NAME, extClassLoader));
         }
 
-        return (URLClassLoader)extClassLoader;
+        return extClassLoader;
     }
 
     /**
