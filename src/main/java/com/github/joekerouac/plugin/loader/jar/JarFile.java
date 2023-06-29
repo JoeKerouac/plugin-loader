@@ -327,8 +327,9 @@ public class JarFile extends AbstractJarFile implements Iterable<java.util.jar.J
             }
             return null;
         };
-        return new JarFile(this.rootFile, this.pathFromRoot + "!/" + entry.getName().substring(0, name.length() - 1),
-            this.data, filter, JarFileType.NESTED_DIRECTORY, this.manifestSupplier);
+        return new JarFile(this.rootFile,
+            this.pathFromRoot + Handler.SEPARATOR + entry.getName().substring(0, name.length() - 1), this.data, filter,
+            JarFileType.NESTED_DIRECTORY, this.manifestSupplier);
     }
 
     private JarFile createJarFileFromFileEntry(JarEntry entry) throws IOException {
@@ -339,7 +340,7 @@ public class JarFile extends AbstractJarFile implements Iterable<java.util.jar.J
                     + "mechanism used to create your executable jar file");
         }
         RandomAccessData entryData = this.entries.getEntryData(entry.getName());
-        return new JarFile(this.rootFile, this.pathFromRoot + "!/" + entry.getName(), entryData,
+        return new JarFile(this.rootFile, this.pathFromRoot + Handler.SEPARATOR + entry.getName(), entryData,
             JarFileType.NESTED_JAR);
     }
 
@@ -387,7 +388,7 @@ public class JarFile extends AbstractJarFile implements Iterable<java.util.jar.J
     @Override
     public URL getUrl() throws MalformedURLException {
         if (this.url == null) {
-            String file = this.rootFile.getFile().toURI() + this.pathFromRoot + "!/";
+            String file = this.rootFile.getFile().toURI() + this.pathFromRoot + Handler.SEPARATOR;
             // Fix UNC paths
             file = file.replace("file:////", "file://");
             this.url = new URL("jar", "", -1, file, new Handler(this));

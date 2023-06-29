@@ -12,8 +12,6 @@
  */
 package com.github.joekerouac.plugin.loader.jar;
 
-import com.github.joekerouac.plugin.loader.annotation.SuppressFBWarnings;
-
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -21,6 +19,8 @@ import java.security.CodeSigner;
 import java.security.cert.Certificate;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
+import com.github.joekerouac.plugin.loader.annotation.SuppressFBWarnings;
 
 /**
  * Extended variant of {@link java.util.jar.JarEntry} returned by {@link JarFile}s.
@@ -30,7 +30,7 @@ import java.util.jar.Manifest;
  * @since 3.0.0
  */
 @SuppressFBWarnings("NM_SAME_SIMPLE_NAME_AS_SUPERCLASS")
-class JarEntry extends java.util.jar.JarEntry implements FileHeader {
+public class JarEntry extends java.util.jar.JarEntry implements FileHeader {
 
     private final int index;
 

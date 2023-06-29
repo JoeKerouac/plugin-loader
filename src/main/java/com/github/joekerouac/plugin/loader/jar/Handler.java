@@ -12,17 +12,21 @@
  */
 package com.github.joekerouac.plugin.loader.jar;
 
-import com.github.joekerouac.plugin.loader.annotation.SuppressFBWarnings;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.SoftReference;
-import java.net.*;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
+import com.github.joekerouac.plugin.loader.annotation.SuppressFBWarnings;
 
 /**
  * jar协议处理器，用于处理嵌套jar url
@@ -170,7 +174,7 @@ public class Handler extends URLStreamHandler {
 
     @SuppressWarnings("checkstyle:multiplestringliterals")
     private String getFileFromSpec(String spec) {
-        int separatorIndex = spec.lastIndexOf("!/");
+        int separatorIndex = spec.lastIndexOf(SEPARATOR);
         if (separatorIndex == -1) {
             throw new IllegalArgumentException("No !/ in spec '" + spec + "'");
         }
