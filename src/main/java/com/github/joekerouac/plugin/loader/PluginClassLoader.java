@@ -41,34 +41,11 @@ public class PluginClassLoader extends URLClassLoader {
     }
 
     /**
-     * ExtClassLoader的类名
-     */
-    private static final String EXT_CLASS_LOADER_CLASS_NAME;
-
-    /**
      * 类加载信息计数
      */
     private static final ClassLoadCounter COUNTER;
 
     static {
-        // java8以及以下版本号：1.8.x_xxx、1.7.x_xxx等
-        // java8以上、Java17以下（目前是到17，以后升级不知道规则是否会变）版本号：9.x.x、11.x.x、17.x.x等
-        String version = System.getProperty("java.version");
-        if (version.startsWith("1.")) {
-            version = version.substring(2, 3);
-        } else {
-            version = version.substring(0, version.indexOf("."));
-        }
-
-        int versionNum = Integer.parseInt(version);
-
-        if (versionNum <= 8) {
-            EXT_CLASS_LOADER_CLASS_NAME = "sun.misc.Launcher$ExtClassLoader";
-        } else {
-            // JDK9开始ExtClassLoader更改为了PlatformClassLoader
-            EXT_CLASS_LOADER_CLASS_NAME = "jdk.internal.loader.ClassLoaders$PlatformClassLoader";
-        }
-
         try {
             ClassLoadCounter counter;
             try {
@@ -119,6 +96,24 @@ public class PluginClassLoader extends URLClassLoader {
         } else {
             this.parent = parent;
         }
+    }
+
+    /**
+     * 获取插件类加载器的父加载器
+     *
+     * @return 父加载器
+     */
+    public final ClassLoader getPluginParent() {
+        return parent;
+    }
+
+    /**
+     * 获取ExtClassLoader
+     *
+     * @return ExtClassLoader
+     */
+    public final ClassLoader getExtClassLoader() {
+        return extClassLoader;
     }
 
     @Override
