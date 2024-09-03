@@ -19,6 +19,7 @@ import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
+import com.github.joekerouac.plugin.loader.PluginClassLoader;
 import com.github.joekerouac.plugin.loader.jar.Handler;
 
 /**
@@ -110,6 +111,8 @@ public class ClassUtil {
 
         if (current.getClass().getName().equals(EXT_CLASS_LOADER_CLASS_NAME)) {
             return current;
+        } else if (current instanceof PluginClassLoader) {
+            return ((PluginClassLoader)current).getExtClassLoader();
         } else {
             return searchExtClassLoader(current.getParent());
         }
