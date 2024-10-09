@@ -60,6 +60,7 @@ public class ProxyUtil {
         return runWithWrapper(loader, () -> {
             Class<?> clazz = loader.loadClass(className);
             Constructor<?> constructor = clazz.getConstructor(parameterTypes);
+            constructor.setAccessible(true);
             return (T)constructor.newInstance(params);
         });
     }
