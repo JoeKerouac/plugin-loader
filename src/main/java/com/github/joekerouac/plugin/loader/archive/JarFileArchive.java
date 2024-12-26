@@ -50,7 +50,11 @@ public class JarFileArchive implements Archive {
             jarFile = new JarFile(new File(file.substring(6)));
             if (split.length > 1) {
                 for (int i = 1; i < split.length; i++) {
-                    jarFile = jarFile.getNestedJarFile(jarFile.getJarEntry(split[i]));
+                    com.github.joekerouac.plugin.loader.jar.JarEntry jarEntry = jarFile.getJarEntry(split[i]);
+                    if (jarEntry.isDirectory()) {
+                        throw new IllegalArgumentException(String.format("当前路径是目录不是嵌套jar，不支持, %s", url));
+                    }
+                    jarFile = jarFile.getNestedJarFile(jarEntry);
                 }
             }
         } else {
