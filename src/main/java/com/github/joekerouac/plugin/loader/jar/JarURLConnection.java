@@ -14,8 +14,16 @@ package com.github.joekerouac.plugin.loader.jar;
 
 import com.github.joekerouac.plugin.loader.annotation.SuppressFBWarnings;
 
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.net.URLStreamHandler;
 import java.security.Permission;
 
 /**
@@ -35,8 +43,6 @@ final class JarURLConnection extends java.net.JarURLConnection {
 
     private static final IllegalStateException NOT_FOUND_CONNECTION_EXCEPTION =
         new IllegalStateException(FILE_NOT_FOUND_EXCEPTION);
-
-    private static final String SEPARATOR = "!/";
 
     private static final URL EMPTY_JAR_URL;
 
@@ -111,10 +117,10 @@ final class JarURLConnection extends java.net.JarURLConnection {
     private URL buildJarFileUrl() {
         try {
             String spec = this.jarFile.getUrl().getFile();
-            if (spec.endsWith(SEPARATOR)) {
-                spec = spec.substring(0, spec.length() - SEPARATOR.length());
+            if (spec.endsWith(Handler.SEPARATOR)) {
+                spec = spec.substring(0, spec.length() - Handler.SEPARATOR.length());
             }
-            if (!spec.contains(SEPARATOR)) {
+            if (!spec.contains(Handler.SEPARATOR)) {
                 return new URL(spec);
             }
             return new URL("jar:" + spec);
@@ -236,14 +242,14 @@ final class JarURLConnection extends java.net.JarURLConnection {
                 : new JarURLConnection(url, null, EMPTY_JAR_ENTRY_NAME));
         }
         int separator;
-        while ((separator = spec.indexOf(SEPARATOR, index)) > 0) {
+        while ((separator = spec.indexOf(Handler.SEPARATOR, index)) > 0) {
             JarEntryName entryName = JarEntryName.get(spec.subSequence(index, separator));
             JarEntry jarEntry = jarFile.getJarEntry(entryName.toCharSequence());
             if (jarEntry == null) {
                 return JarURLConnection.notFound(jarFile, entryName);
             }
             jarFile = jarFile.getNestedJarFile(jarEntry);
-            index = separator + SEPARATOR.length();
+            index = separator + Handler.SEPARATOR.length();
         }
         JarEntryName jarEntryName = JarEntryName.get(spec, index);
         if (Boolean.TRUE.equals(useFastExceptions.get()) && !jarEntryName.isEmpty()
@@ -254,11 +260,11 @@ final class JarURLConnection extends java.net.JarURLConnection {
     }
 
     private static int indexOfRootSpec(StringSequence file, String pathFromRoot) {
-        int separatorIndex = file.indexOf(SEPARATOR);
+        int separatorIndex = file.indexOf(Handler.SEPARATOR);
         if (separatorIndex < 0 || !file.startsWith(pathFromRoot, separatorIndex)) {
             return -1;
         }
-        return separatorIndex + SEPARATOR.length() + pathFromRoot.length();
+        return separatorIndex + Handler.SEPARATOR.length() + pathFromRoot.length();
     }
 
     private static JarURLConnection notFound() {

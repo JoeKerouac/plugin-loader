@@ -12,6 +12,9 @@
  */
 package com.github.joekerouac.plugin.loader.archive;
 
+import com.github.joekerouac.plugin.loader.jar.Handler;
+import com.github.joekerouac.plugin.loader.jar.JarFile;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -19,8 +22,6 @@ import java.net.URL;
 import java.util.Iterator;
 import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
-
-import com.github.joekerouac.plugin.loader.jar.JarFile;
 
 /**
  * {@link Archive} implementation backed by a {@link com.github.joekerouac.plugin.loader.jar.JarFile}.
@@ -34,6 +35,31 @@ public class JarFileArchive implements Archive {
     private final JarFile jarFile;
 
     private URL url;
+
+    public JarFileArchive(URL url) throws IOException {
+        String protocol = url.getProtocol();
+        JarFile jarFile;
+        if ("file".equals(protocol)) {
+            jarFile = new JarFile(new File(url.getFile()));
+        } else if ("jar".equals(protocol)) {
+            String[] split = url.getFile().split(Handler.SEPARATOR);
+            String file = split[0];
+            if (!file.startsWith("file:/")) {
+                throw new IllegalArgumentException(String.format("不支持的协议: %s", url));
+            }
+            jarFile = new JarFile(new File(file.substring(6)));
+            if (split.length > 1) {
+                for (int i = 1; i < split.length; i++) {
+                    jarFile = jarFile.getNestedJarFile(jarFile.getJarEntry(split[i]));
+                }
+            }
+        } else {
+            throw new IllegalArgumentException(String.format("不支持的协议: %s", url));
+        }
+
+        this.jarFile = jarFile;
+        this.url = url;
+    }
 
     public JarFileArchive(File file) throws IOException {
         this(file, file.toURI().toURL());
