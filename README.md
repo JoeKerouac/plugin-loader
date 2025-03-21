@@ -13,7 +13,7 @@
 
 
 使用打包插件打包：
-```
+```xml
 <project>
     <build>
         <plugins>
@@ -88,3 +88,44 @@
 </assembly>
 ```
 
+
+## 可执行jar打包
+
+> 注意，项目依赖中要包含本项目；
+
+```xml
+<!-- 可执行jar打包 -->
+<plugin>
+    <artifactId>maven-assembly-plugin</artifactId>
+    <version>3.0.0</version>
+    <configuration>
+        <!-- 不添加-fat后缀，该后缀来源与fat.xml的id -->
+        <appendAssemblyId>false</appendAssemblyId>
+        <finalName>${project.artifactId}-${project.version}</finalName>
+        <descriptors>
+            <descriptor>fat.xml</descriptor>
+        </descriptors>
+        <archiverConfig>
+            <compress>false</compress>
+        </archiverConfig>
+        <archive>
+            <manifestEntries>
+                <!-- 这个是固定的 -->
+                <Main-Class>com.github.joekerouac.plugin.loader.util.Bootstrap</Main-Class>
+                <Biz-Main-Class>这里填项目的启动类</Biz-Main-Class>
+            </manifestEntries>
+        </archive>
+    </configuration>
+    <executions>
+        <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+                <goal>single</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+
+```

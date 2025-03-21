@@ -22,6 +22,7 @@ import com.github.joekerouac.plugin.loader.archive.JarFileArchive;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.jar.Attributes;
 
@@ -54,10 +55,10 @@ public class Bootstrap {
 
         URL where = ClassUtil.where(clazz);
         List<Archive> archives = new ArrayList<>();
-        List<URL> classpath = PluginClassLoaderUtil.getClasspath();
 
         JarFileArchive mainArchive;
         // 如果协议是jar，说明当前是已经打包为可执行jar了，那么需要将本jar加入archive，遍历里边的lib
+        // 如果是jar，那说明是使用java -jar的形式启动的，此种形式不支持classpath，所以也无需设置classpath
         if (where.getProtocol().equals("jar")) {
             // 获取指定类所在的jar包
             File rootJarFile = ClassUtil.getRootJarFile(clazz);
@@ -68,7 +69,7 @@ public class Bootstrap {
 
         archives.add(mainArchive);
         PluginClassLoader classLoader =
-            PluginClassLoaderUtil.build(archives, classpath, new String[0], true, currentClassLoader);
+            PluginClassLoaderUtil.build(archives, Collections.emptyList(), new String[0], true, currentClassLoader);
 
         String bizMainClassName = (String)mainArchive.getManifest().getMainAttributes()
             .get(new Attributes.Name(ManifestConst.BIZ_MAIN_CLASS));
