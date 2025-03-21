@@ -12,6 +12,10 @@
  */
 package com.github.joekerouac.plugin.loader;
 
+import com.github.joekerouac.plugin.loader.archive.Archive;
+import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
+
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -20,9 +24,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
-import com.github.joekerouac.plugin.loader.archive.Archive;
-import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 
 /**
  * PluginClassLoader工具
@@ -37,6 +40,15 @@ public class PluginClassLoaderUtil {
      * sdk中的类应该让父加载器来加载，防止出现不可预知的问题
      */
     private static final String[] NEED_PARENT_LOAD = new String[] {"com.github.joekerouac.plugin.loader."};
+
+    public static List<URL> getClasspath() throws MalformedURLException {
+        String[] classpath = System.getProperty("java.class.path").split(File.pathSeparator);
+        List<URL> list = new ArrayList<>();
+        for (String str : classpath) {
+            list.add(new URL(str));
+        }
+        return list;
+    }
 
     /**
      * 构造器
@@ -91,9 +103,13 @@ public class PluginClassLoaderUtil {
         List<URL> classpathUrl = new ArrayList<>(classpath == null ? Collections.emptyList() : classpath);
         for (Archive archive : archives) {
             try {
+                Manifest manifest = archive.getManifest();
+                Attributes mainAttributes = manifest.getMainAttributes();
+                String pluginLibDir =
+                    (String)mainAttributes.getOrDefault(new Attributes.Name(ManifestConst.KEY_PLUGIN_LIB), "lib/");
                 classpathUrl.add(archive.getUrl());
                 Iterator<Archive> nestedArchives = archive.getNestedArchives(Archive.FILTER_ALL,
-                    entry -> entry.getName().startsWith("lib/") && entry.getName().endsWith(".jar"));
+                    entry -> entry.getName().startsWith(pluginLibDir) && entry.getName().endsWith(".jar"));
                 nestedArchives.forEachRemaining(a -> {
                     try {
                         classpathUrl.add(a.getUrl());

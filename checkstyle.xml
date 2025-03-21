@@ -174,11 +174,6 @@
         <!-- 不允许尾部注释，尾部注释很难对齐 -->
         <module name="TrailingComment"/>
 
-        <!-- 检查只能在Main类中有main方法，其他类中不允许main方法（main方法一般都是本地调试使用的，不应该打包上去） -->
-        <module name="UncommentedMain">
-            <property name="excludedClasses" value="\.Main$"/>
-        </module>
-
         <!-- 对于数字声明为long，最后应该使用大写字母L而不是小写字母l，例如long number = 123456L; -->
         <module name="UpperEll"/>
 
