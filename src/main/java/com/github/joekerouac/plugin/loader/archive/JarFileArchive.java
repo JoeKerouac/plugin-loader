@@ -47,7 +47,7 @@ public class JarFileArchive implements Archive {
             if (!file.startsWith("file:/")) {
                 throw new IllegalArgumentException(String.format("不支持的协议: %s", url));
             }
-            jarFile = new JarFile(new File(file.substring(6)));
+            jarFile = new JarFile(new File(file.substring(5)));
             if (split.length > 1) {
                 for (int i = 1; i < split.length; i++) {
                     com.github.joekerouac.plugin.loader.jar.JarEntry jarEntry = jarFile.getJarEntry(split[i]);
