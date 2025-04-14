@@ -65,7 +65,7 @@ public class JarFileArchive implements Archive {
         }
 
         this.jarFile = jarFile;
-        this.url = url;
+        this.url = jarFile.getUrl();
     }
 
     public JarFileArchive(File file) throws IOException {
