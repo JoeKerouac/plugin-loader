@@ -18,6 +18,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.github.joekerouac.plugin.loader.PluginClassLoader;
 import com.github.joekerouac.plugin.loader.jar.Handler;
@@ -45,14 +47,7 @@ public class ClassUtil {
     static {
         // java8以及以下版本号：1.8.x_xxx、1.7.x_xxx等
         // java8以上、Java17以下（目前是到17，以后升级不知道规则是否会变）版本号：9.x.x、11.x.x、17.x.x等
-        String version = System.getProperty("java.version");
-        if (version.startsWith("1.")) {
-            version = version.substring(2, 3);
-        } else {
-            version = version.substring(0, version.indexOf("."));
-        }
-
-        int versionNum = Integer.parseInt(version);
+        int versionNum = parse();
 
         if (versionNum <= 8) {
             EXT_CLASS_LOADER_CLASS_NAME = "sun.misc.Launcher$ExtClassLoader";
@@ -208,6 +203,70 @@ public class ClassUtil {
         }
 
         return result;
+    }
+
+    /**
+     * 解析java版本号
+     * 
+     * @return 当前java版本号，这里返回的是major version，如果是java8,则返回8,如果是java17,则返回17
+     */
+    private static int parse() {
+        String s = System.getProperty("java.version");
+
+        if (s == null) {
+            throw new NullPointerException();
+        }
+
+        // Shortcut to avoid initializing VersionPattern when creating
+        // feature-version constants during startup
+        if (isSimpleNumber(s)) {
+            return Integer.parseInt(s);
+        }
+
+        Matcher m = VersionPattern.VSTR_PATTERN.matcher(s);
+        if (!m.matches()) {
+            throw new IllegalArgumentException("Invalid version string: '" + s + "'");
+        }
+
+        // $VNUM is a dot-separated list of integers of arbitrary length
+        String[] split = m.group(VersionPattern.VNUM_GROUP).split("\\.");
+        Integer[] version = new Integer[split.length];
+        for (int i = 0; i < split.length; i++) {
+            version[i] = Integer.parseInt(split[i]);
+        }
+
+        return version[0];
+    }
+
+    private static boolean isSimpleNumber(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            char lowerBound = (i > 0) ? '0' : '1';
+            if (c < lowerBound || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static class VersionPattern {
+        // $VNUM(-$PRE)?(\+($BUILD)?(\-$OPT)?)?
+        // RE limits the format of version strings
+        // ([1-9][0-9]*(?:(?:\.0)*\.[1-9][0-9]*)*)(?:-([a-zA-Z0-9]+))?(?:(\+)(0|[1-9][0-9]*)?)?(?:-([-a-zA-Z0-9.]+))?
+
+        private static final String VNUM = "(?<VNUM>[1-9][0-9]*(?:(?:\\.0)*\\.[1-9][0-9]*)*)";
+        private static final String PRE = "(?:-(?<PRE>[a-zA-Z0-9]+))?";
+        private static final String BUILD = "(?:(?<PLUS>\\+)(?<BUILD>0|[1-9][0-9]*)?)?";
+        private static final String OPT = "(?:-(?<OPT>[-a-zA-Z0-9.]+))?";
+        private static final String VSTR_FORMAT = VNUM + PRE + BUILD + OPT;
+
+        static final Pattern VSTR_PATTERN = Pattern.compile(VSTR_FORMAT);
+
+        static final String VNUM_GROUP = "VNUM";
+        static final String PRE_GROUP = "PRE";
+        static final String PLUS_GROUP = "PLUS";
+        static final String BUILD_GROUP = "BUILD";
+        static final String OPT_GROUP = "OPT";
     }
 
 }
