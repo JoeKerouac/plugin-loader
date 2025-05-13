@@ -217,19 +217,24 @@ public class ClassUtil {
             throw new NullPointerException();
         }
 
+        // java8以及之前的版本号固定是1.开头，例如1.8.0_422，其中8是真正的major version，0是minor version，422是build number
+        if (s.startsWith("1.")) {
+            return Integer.parseInt(s.substring(2, 3));
+        }
+
         // Shortcut to avoid initializing VersionPattern when creating
         // feature-version constants during startup
         if (isSimpleNumber(s)) {
             return Integer.parseInt(s);
         }
 
-        Matcher m = VersionPattern.VSTR_PATTERN.matcher(s);
+        Matcher m = Java9VersionPattern.VSTR_PATTERN.matcher(s);
         if (!m.matches()) {
             throw new IllegalArgumentException("Invalid version string: '" + s + "'");
         }
 
         // $VNUM is a dot-separated list of integers of arbitrary length
-        String[] split = m.group(VersionPattern.VNUM_GROUP).split("\\.");
+        String[] split = m.group(Java9VersionPattern.VNUM_GROUP).split("\\.");
         Integer[] version = new Integer[split.length];
         for (int i = 0; i < split.length; i++) {
             version[i] = Integer.parseInt(split[i]);
@@ -249,7 +254,10 @@ public class ClassUtil {
         return true;
     }
 
-    private static class VersionPattern {
+    /**
+     * java9以及之后的版本号正则
+     */
+    private static class Java9VersionPattern {
         // $VNUM(-$PRE)?(\+($BUILD)?(\-$OPT)?)?
         // RE limits the format of version strings
         // ([1-9][0-9]*(?:(?:\.0)*\.[1-9][0-9]*)*)(?:-([a-zA-Z0-9]+))?(?:(\+)(0|[1-9][0-9]*)?)?(?:-([-a-zA-Z0-9.]+))?
