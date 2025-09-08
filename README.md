@@ -68,6 +68,8 @@
         <dependencySet>
             <outputDirectory>/lib</outputDirectory>
             <excludes>
+                <!-- 注意，默认情况下也会将自身的jar（普通jar）包含到fat jar中，我们这里将其排除 -->
+                <exclude>${project.groupId}:${project.artifactId}</exclude>
                 <exclude>com.github.JoeKerouac:plugin-loader</exclude>
             </excludes>
             <!-- 是否将依赖解压，true表示解压 -->
