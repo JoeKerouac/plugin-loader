@@ -12,19 +12,19 @@
  */
 package com.github.joekerouac.plugin.loader.util;
 
-import com.github.joekerouac.plugin.loader.ManifestConst;
-import com.github.joekerouac.plugin.loader.PluginClassLoader;
-import com.github.joekerouac.plugin.loader.PluginClassLoaderUtil;
-import com.github.joekerouac.plugin.loader.ProxyUtil;
-import com.github.joekerouac.plugin.loader.archive.Archive;
-import com.github.joekerouac.plugin.loader.archive.JarFileArchive;
-
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.jar.Attributes;
+
+import com.github.joekerouac.plugin.loader.ManifestConst;
+import com.github.joekerouac.plugin.loader.PluginClassLoader;
+import com.github.joekerouac.plugin.loader.PluginClassLoaderUtil;
+import com.github.joekerouac.plugin.loader.ProxyUtil;
+import com.github.joekerouac.plugin.loader.archive.Archive;
+import com.github.joekerouac.plugin.loader.archive.JarFileArchive;
 
 /**
  * 用于构建可执行jar时使用，如果需要构建可执行jar，需要把plugin-loader的类解压打包到jar中，然后将jar包的main-class设置为本类，另
@@ -68,8 +68,8 @@ public class Bootstrap {
         }
 
         archives.add(mainArchive);
-        PluginClassLoader classLoader =
-            PluginClassLoaderUtil.build(archives, Collections.emptyList(), new String[0], true, currentClassLoader);
+        PluginClassLoader classLoader = PluginClassLoaderUtil.build(archives, Collections.emptyList(), new String[0],
+            new String[0], new String[0], true, currentClassLoader);
 
         String bizMainClassName = (String)mainArchive.getManifest().getMainAttributes()
             .get(new Attributes.Name(ManifestConst.BIZ_MAIN_CLASS));

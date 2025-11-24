@@ -75,6 +75,16 @@ public class PluginClassLoader extends URLClassLoader {
     private final String[] needLoadByParent;
 
     /**
+     * 强制父类加载器加载的类
+     */
+    private final String[] forceLoadByParent;
+
+    /**
+     * 强制子类加载器加载的类
+     */
+    private final String[] forceLoadByChild;
+
+    /**
      * 父级加载器
      */
     private final ClassLoader parent;
@@ -84,11 +94,16 @@ public class PluginClassLoader extends URLClassLoader {
      */
     private final boolean loadByParentAfterFail;
 
-    public PluginClassLoader(URL[] urls, ClassLoader parent, String[] needLoadByParent, boolean loadByParentAfterFail) {
+    public PluginClassLoader(URL[] urls, ClassLoader parent, String[] needLoadByParent, String[] forceLoadByParent,
+        String[] forceLoadByChild, boolean loadByParentAfterFail) {
         super(urls, null);
         this.loadByParentAfterFail = loadByParentAfterFail;
-        this.needLoadByParent =
-            needLoadByParent == null ? new String[0] : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
+        this.needLoadByParent = needLoadByParent == null || needLoadByParent.length == 0 ? new String[0]
+            : Arrays.copyOfRange(needLoadByParent, 0, needLoadByParent.length);
+        this.forceLoadByParent = forceLoadByParent == null || forceLoadByParent.length == 0 ? new String[0]
+            : Arrays.copyOfRange(forceLoadByParent, 0, forceLoadByParent.length);
+        this.forceLoadByChild = forceLoadByChild == null || forceLoadByChild.length == 0 ? new String[0]
+            : Arrays.copyOfRange(forceLoadByChild, 0, forceLoadByChild.length);
 
         this.extClassLoader = ClassUtil.getExtClassLoader(parent);
         if (parent == null) {
@@ -177,7 +192,16 @@ public class PluginClassLoader extends URLClassLoader {
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         // 先判断是不是必须父类加载的，如果类是系统类或者是用户指定了需要父加载器加载的，使用父加载器加载
         boolean loadByExt = extClassLoader.getResource(name.replaceAll("\\.", "/").concat(".class")) != null;
-        boolean loadByParent = Arrays.stream(needLoadByParent).anyMatch(name::startsWith);
+        boolean loadByParent = false;
+        boolean forceLoadByParent = Arrays.stream(this.forceLoadByParent).anyMatch(name::startsWith);
+        boolean forceLoadByChild = false;
+        if (!forceLoadByParent) {
+            forceLoadByChild = Arrays.stream(this.forceLoadByChild).anyMatch(name::startsWith);
+        }
+
+        if (!forceLoadByParent && !forceLoadByChild) {
+            loadByParent = Arrays.stream(needLoadByParent).anyMatch(name::startsWith);
+        }
 
         // 加锁，准备加载
         synchronized (getClassLoadingLock(name)) {
@@ -188,6 +212,8 @@ public class PluginClassLoader extends URLClassLoader {
                 // 如果是需要父加载器加载则直接调用父类加载器加载
                 if (loadByExt) {
                     clazz = loadClass(extClassLoader, name, false);
+                } else if (forceLoadByParent) {
+                    clazz = loadClass(parent, name, true);
                 } else if (loadByParent) {
                     // 这里不应该抛出异常，找不到了还可以使用子加载器加载
                     clazz = loadClass(parent, name, false);
@@ -205,7 +231,7 @@ public class PluginClassLoader extends URLClassLoader {
                         COUNTER.increment();
                     } catch (ClassNotFoundException e) {
                         // 如果我们没有优先使用父加载器加载，并且允许对加载失败的类使用父加载器加载，则尝试使用父加载器加载，加载不到就抛出异常，否则直接抛出异常
-                        if (!loadByExt && !loadByParent && loadByParentAfterFail) {
+                        if (!loadByExt && !loadByParent && !forceLoadByChild && loadByParentAfterFail) {
                             clazz = loadClass(parent, name, true);
                         } else {
                             throw e;

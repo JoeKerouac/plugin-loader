@@ -12,9 +12,6 @@
  */
 package com.github.joekerouac.plugin.loader;
 
-import com.github.joekerouac.plugin.loader.archive.Archive;
-import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -26,6 +23,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
+import com.github.joekerouac.plugin.loader.archive.Archive;
+import com.github.joekerouac.plugin.loader.exception.ClassLoaderException;
 
 /**
  * PluginClassLoader工具
@@ -57,7 +57,7 @@ public class PluginClassLoaderUtil {
      *            添加到class path上的jar集合
      */
     public static PluginClassLoader build(List<Archive> archives) {
-        return build(archives, Collections.emptyList(), null, false, null);
+        return build(archives, Collections.emptyList(), null, null, null, false, null);
     }
 
     /**
@@ -69,7 +69,21 @@ public class PluginClassLoaderUtil {
      *            需要父加载器加载的类
      */
     public static PluginClassLoader build(List<Archive> archives, String[] needParentLoad) {
-        return build(archives, Collections.emptyList(), needParentLoad, false, null);
+        return build(archives, Collections.emptyList(), needParentLoad, null, null, false, null);
+    }
+
+    /**
+     * 构造器
+     *
+     * @param archives
+     *            添加到class path上的jar集合
+     * @param needParentLoad
+     *            需要父加载器加载的类
+     * @param forceLoadByChild
+     *            需要强制子类加载器加载的类
+     */
+    public static PluginClassLoader build(List<Archive> archives, String[] needParentLoad, String[] forceLoadByChild) {
+        return build(archives, Collections.emptyList(), needParentLoad, null, forceLoadByChild, false, null);
     }
 
     /**
@@ -81,7 +95,7 @@ public class PluginClassLoaderUtil {
      *            classpath
      */
     public static PluginClassLoader build(List<Archive> archives, List<URL> classpath) {
-        return build(archives, classpath, null, false, null);
+        return build(archives, classpath, null, null, null, false, null);
     }
 
     /**
@@ -100,6 +114,25 @@ public class PluginClassLoaderUtil {
      */
     public static PluginClassLoader build(List<Archive> archives, List<URL> classpath, String[] needParentLoad,
         boolean loadByParentAfterFail, ClassLoader parent) {
+        return build(archives, classpath, needParentLoad, null, null, loadByParentAfterFail, parent);
+    }
+
+    /**
+     * 构造器
+     *
+     * @param archives
+     *            添加到class path上的jar集合，会自动遍历该jar中lib目录下的包
+     * @param classpath
+     *            添加到class path的其他内容
+     * @param needParentLoad
+     *            需要父加载器加载的类
+     * @param loadByParentAfterFail
+     *            当本加载器加载类失败时是否允许父加载器加载，true表示允许
+     * @param parent
+     *            父加载器，如果为空则使用extClassLoader
+     */
+    public static PluginClassLoader build(List<Archive> archives, List<URL> classpath, String[] needParentLoad,
+        String[] forceLoadByParent, String[] forceLoadByChild, boolean loadByParentAfterFail, ClassLoader parent) {
         List<URL> classpathUrl = new ArrayList<>(classpath == null ? Collections.emptyList() : classpath);
         for (Archive archive : archives) {
             try {
@@ -135,8 +168,7 @@ public class PluginClassLoaderUtil {
                 finalNeedParentLoad.length - NEED_PARENT_LOAD.length, NEED_PARENT_LOAD.length);
         }
 
-        return new PluginClassLoader(classpathUrl.toArray(new URL[0]), parent, finalNeedParentLoad,
-            loadByParentAfterFail);
+        return new PluginClassLoader(classpathUrl.toArray(new URL[0]), parent, finalNeedParentLoad, forceLoadByParent,
+            forceLoadByChild, loadByParentAfterFail);
     }
-
 }
