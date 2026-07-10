@@ -12,8 +12,8 @@
  */
 package com.github.joekerouac.plugin.loader.archive;
 
-import com.github.joekerouac.plugin.loader.jar.Handler;
 import com.github.joekerouac.plugin.loader.jar.JarFile;
+import com.github.joekerouac.plugin.loader.util.JarFileUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,25 +41,8 @@ public class JarFileArchive implements Archive {
         JarFile jarFile;
         if ("file".equals(protocol)) {
             jarFile = new JarFile(new File(url.getFile()));
-        } else if ("jar".equals(protocol)) {
-            String[] split = url.getFile().split(Handler.SEPARATOR);
-            String file = split[0];
-            if (!file.startsWith("file:/")) {
-                throw new IllegalArgumentException(String.format("不支持的协议: %s", url));
-            }
-            jarFile = new JarFile(new File(file.substring(5)));
-            if (split.length > 1) {
-                for (int i = 1; i < split.length; i++) {
-                    if (!split[i].endsWith(".jar")) {
-                        break;
-                    }
-                    com.github.joekerouac.plugin.loader.jar.JarEntry jarEntry = jarFile.getJarEntry(split[i]);
-                    if (jarEntry.isDirectory()) {
-                        throw new IllegalArgumentException(String.format("当前路径是目录不是嵌套jar，不支持, %s", url));
-                    }
-                    jarFile = jarFile.getNestedJarFile(jarEntry);
-                }
-            }
+        } else if ("jar".equals(protocol) || "nested".equals(protocol)) {
+            jarFile = JarFileUtil.fromUrl(url);
         } else {
             throw new IllegalArgumentException(String.format("不支持的协议: %s", url));
         }

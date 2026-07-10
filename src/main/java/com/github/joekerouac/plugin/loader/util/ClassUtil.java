@@ -146,6 +146,11 @@ public class ClassUtil {
      */
     public static File getRootJarFile(Class<?> classInPlugin) {
         URL jarUrl = ClassUtil.where(classInPlugin);
+        JarFileUtil.SpringBootNestedLocation nestedLocation = JarFileUtil.parseSpringBootNestedUrl(jarUrl);
+        if (nestedLocation != null) {
+            return nestedLocation.getOuterJarFile();
+        }
+
         // 校验当前类肯定在jar包中
         if (!jarUrl.getProtocol().equals("jar")) {
             throw new IllegalStateException(String.format("当前类 [%s] 没有在jar包中执行", classInPlugin.getName()));
