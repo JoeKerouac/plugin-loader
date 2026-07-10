@@ -44,30 +44,6 @@ public class JarFileUtil {
     private static final String SPRING_BOOT_NESTED_ENTRY_SEPARATOR = "/!";
 
     /**
-     * Spring Boot nested jar 位置信息。
-     */
-    public static final class SpringBootNestedLocation {
-
-        private final File outerJarFile;
-
-        private final String nestedEntryPath;
-
-        public SpringBootNestedLocation(File outerJarFile, String nestedEntryPath) {
-            this.outerJarFile = outerJarFile;
-            this.nestedEntryPath = nestedEntryPath;
-        }
-
-        public File getOuterJarFile() {
-            return outerJarFile;
-        }
-
-        public String getNestedEntryPath() {
-            return nestedEntryPath;
-        }
-
-    }
-
-    /**
      * 从url中获取jar file，支持:
      * <ul>
      * <li>file协议，例如: jar:file:/path/app.jar!/BOOT-INF/lib/inner.jar!/</li>
@@ -191,6 +167,30 @@ public class JarFileUtil {
         }
 
         return jarFile;
+    }
+
+    /**
+     * Spring Boot nested jar 位置信息。
+     */
+    public static final class SpringBootNestedLocation {
+
+        private final File outerJarFile;
+
+        private final String nestedEntryPath;
+
+        public SpringBootNestedLocation(File outerJarFile, String nestedEntryPath) {
+            this.outerJarFile = outerJarFile;
+            this.nestedEntryPath = nestedEntryPath;
+        }
+
+        public File getOuterJarFile() {
+            return outerJarFile;
+        }
+
+        public String getNestedEntryPath() {
+            return nestedEntryPath;
+        }
+
     }
 
 }
